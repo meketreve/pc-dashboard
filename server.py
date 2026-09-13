@@ -26,9 +26,8 @@ from redes import Redes
 HOST, PORT = "127.0.0.1", 8787
 BASE = Path(__file__).resolve().parent
 CONFIG = Path.home() / ".config/pc-dashboard/atalhos.json"
+SETTINGS_FILE = Path.home() / ".config/pc-dashboard/config.json"  # coisas da maquina (ver config.exemplo.json)
 ALLOWED_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
-NET_IFACE = "enp7s0"
-DISKS = [("/", "Sistema (NVMe)"), ("/mnt/SSD", "SSD")]
 AUDIO_RATE = 24000
 MPRIS = "org.mpris.MediaPlayer2"
 
@@ -38,12 +37,37 @@ DEFAULT_SHORTCUTS = [
     {"id": "mute", "label": "Mudo", "icon": "🔇", "cmd": ["pactl", "set-sink-mute", "@DEFAULT_SINK@", "toggle"]},
     {"id": "print", "label": "Print da tela", "icon": "📸", "cmd": ["gnome-screenshot"]},
     {"id": "terminal", "label": "Terminal", "icon": "⌨️", "cmd": ["gnome-terminal"]},
-    {"id": "ssd", "label": "Arquivos do SSD", "icon": "📁", "cmd": ["nemo", "/mnt/SSD"]},
+    {"id": "arquivos", "label": "Arquivos", "icon": "📁", "cmd": ["xdg-open", str(Path.home())]},
     {"id": "steam", "label": "Steam", "icon": "🎮", "cmd": ["steam"]},
     {"id": "monitor", "label": "Monitor do sistema", "icon": "📊", "cmd": ["gnome-system-monitor"]},
     {"id": "sunshine", "label": "Painel Sunshine", "icon": "☀️", "cmd": ["xdg-open", "https://localhost:47990"]},
     {"id": "lock", "label": "Bloquear tela", "icon": "🔒", "cmd": ["cinnamon-screensaver-command", "--lock"]},
 ]
+
+
+def load_settings():
+    try:
+        return json.loads(SETTINGS_FILE.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def default_iface():
+    """Interface da rota padrao, pra nao precisar configurar a rede."""
+    try:
+        for line in Path("/proc/net/route").read_text().splitlines()[1:]:
+            f = line.split()
+            if f[1] == "00000000" and int(f[3], 16) & 2:
+                return f[0]
+    except (OSError, ValueError, IndexError):
+        pass
+    return None
+
+
+SETTINGS = load_settings()
+NET_IFACE = SETTINGS.get("rede") or default_iface()
+DISKS = [(d["caminho"], d["nome"]) for d in SETTINGS.get("discos", [])] or [("/", "Sistema")]
+CPU_TDP = SETTINGS.get("cpu_tdp_w")
 
 
 def load_shortcuts():
@@ -62,7 +86,7 @@ class GpuReader:
 
     FIELDS = ["util", "enc", "dec", "mem_used", "mem_total", "temp", "power", "power_limit", "fan", "clock"]
     QUERY = ("utilization.gpu,utilization.encoder,utilization.decoder,memory.used,memory.total,"
-             "temperature.gpu,power.draw,power.limit,fan.speed,clocks.gr")
+             "temperature.gpu,power.draw,power.limit,fan.speed,clocks.gr,name")  # name por ultimo: pode ter virgula
 
     def __init__(self):
         self.latest = None
@@ -75,10 +99,11 @@ class GpuReader:
                     ["nvidia-smi", f"--query-gpu={self.QUERY}", "--format=csv,noheader,nounits", "-lms", "1000"],
                     stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
                 for line in proc.stdout:
-                    vals = [v.strip() for v in line.split(",")]
-                    if len(vals) != len(self.FIELDS):
+                    vals = [v.strip() for v in line.split(",", len(self.FIELDS))]
+                    if len(vals) != len(self.FIELDS) + 1:
                         continue
                     self.latest = {k: _num(v) for k, v in zip(self.FIELDS, vals)}
+                    self.latest["name"] = vals[-1].replace("NVIDIA ", "").replace("GeForce ", "")
             except OSError:
                 pass
             self.latest = None
@@ -228,7 +253,7 @@ class Collector:
             "uptime": time.time() - psutil.boot_time(),
             "load": os.getloadavg(),
             "cpu": {"pct": sum(per) / len(per), "per": per, "freq": freq.current if freq else None,
-                    "temp": cpu_temp, "threads": len(per), "power": self.rapl.watts(now)},
+                    "temp": cpu_temp, "threads": len(per), "power": self.rapl.watts(now), "tdp": CPU_TDP},
             "mem": {"used": vm.total - vm.available, "total": vm.total, "pct": vm.percent,
                     "swap_used": sw.used, "swap_total": sw.total},
             "gpu": self.gpu.latest,

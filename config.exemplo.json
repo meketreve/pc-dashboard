@@ -1,0 +1,9 @@
+{
+  "monitor": "DP-0",
+  "rede": "",
+  "discos": [
+    { "caminho": "/", "nome": "Sistema" },
+    { "caminho": "/home", "nome": "Home" }
+  ],
+  "cpu_tdp_w": null
+}

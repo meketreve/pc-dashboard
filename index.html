@@ -473,7 +473,7 @@ function render(s) {
     `${fmtN(m.pct)}% em uso · swap ${fmtBytes(m.swap_used)}`);
   if (g) {
     setTile("t-gpu", `${fmtN(g.util)}<small>%</small>`,
-      `RTX 2060 · ${fmtN(g.clock)} MHz · ${fmtN(g.temp)} °C`);
+      `${esc(g.name || "GPU")} · ${fmtN(g.clock)} MHz · ${fmtN(g.temp)} °C`);
     const vp = 100 * g.mem_used / g.mem_total;
     setTile("t-vram", `${levelIcon(level(vp, 85, 95))}${fmtN(g.mem_used / 1024, 1)}<small>de ${fmtN(g.mem_total / 1024, 0)} GB</small>`,
       `${fmtN(vp)}% em uso`);
@@ -495,10 +495,12 @@ function render(s) {
     return row(label, `${levelIcon(l)}${fmtN(t)} °C${levelWord[l]}`);
   };
   let sens = tRow("CPU (pacote)", c.temp, 80, 90) + (g ? tRow("GPU", g.temp, 78, 86) : "") + tRow("SSD NVMe", s.nvme_temp, 65, 75);
-  const CPU_TDP = 105; // Xeon E5-2650 v4
-  if (c.power != null) {
+  const CPU_TDP = c.tdp; // config.json -> cpu_tdp_w; sem ele mostra so os watts
+  if (c.power != null && CPU_TDP) {
     const cp = 100 * c.power / CPU_TDP;
     sens += meterBlock("Consumo da CPU", `${fmtN(c.power)} W <small>de ${CPU_TDP} W (TDP)</small>`, cp, level(cp, 85, 100));
+  } else if (c.power != null) {
+    sens += row("Consumo da CPU", `${fmtN(c.power)} W`);
   } else {
     sens += row("Consumo da CPU", `<small>sem acesso ao sensor</small>`);
   }

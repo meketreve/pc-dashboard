@@ -21,6 +21,8 @@ Dashboard em tela cheia que roda num **monitor virtual** do Linux e é transmiti
 - **Tocando agora** pelo MPRIS (Spotify, navegador, VLC…): capa, título, artista e progresso
 - **Visualizador de áudio** de 64 barras que capta o som do PC (qualquer programa), com FFT feita no navegador e ganho automático
 
+![Tocando agora e visualizador de áudio](docs/musica.png)
+
 **Redes sociais**
 - Card na tela principal com seguidores, "+N hoje", views e likes de cada rede
 - Página de detalhes com o último vídeo/post, os totais e a tendência dos últimos 30 dias
@@ -35,7 +37,7 @@ Dashboard em tela cheia que roda num **monitor virtual** do Linux e é transmiti
 
 **Texugo** 🦡
 - Anda por cima dos cards e pula de um pro outro, inclusive quando a página muda
-- Dança no ritmo da música, dorme quando fica parado, sua quando o PC esquenta
+- Dança no ritmo da música, dorme quando fica parado (no print acima ele está cochilando em cima do card de música), sua quando o PC esquenta
 - Comemora quando entra seguidor novo; tocar nele ganha um coração
 
 **Páginas**: painel → redes → atalhos, trocadas por um botão discreto no canto inferior direito. A página de atalhos volta sozinha pro painel depois de 90 s sem toque.
@@ -72,7 +74,7 @@ Precisa de Python 3 com `psutil`, `google-chrome`, `wmctrl`, `xrandr`, `curl`, `
    Description=Painel do PC (servidor local 127.0.0.1:8787)
 
    [Service]
-   ExecStart=/usr/bin/python3 /mnt/SSD/git-projeto/pc-dashboard/server.py
+   ExecStart=/usr/bin/python3 /caminho/para/pc-dashboard/server.py
    KillMode=process
    Restart=on-failure
    RestartSec=3s
@@ -84,14 +86,23 @@ Precisa de Python 3 com `psutil`, `google-chrome`, `wmctrl`, `xrandr`, `curl`, `
    [Desktop Entry]
    Type=Application
    Name=Painel do PC
-   Exec=sh -c "sleep 15; bash /mnt/SSD/git-projeto/pc-dashboard/abrir-painel.sh"
+   Exec=sh -c "sleep 15; bash /caminho/para/pc-dashboard/abrir-painel.sh"
    X-GNOME-Autostart-enabled=true
    NoDisplay=true
    ```
 
-3. Atalhos: copie `atalhos.exemplo.json` pra `~/.config/pc-dashboard/atalhos.json` e ajuste. Cada item é `{id, label, icon, cmd}`, e só os ids desse arquivo podem ser executados.
+3. Máquina: copie `config.exemplo.json` pra `~/.config/pc-dashboard/config.json` e ajuste (tudo é opcional):
 
-Depois de mudar `server.py` ou `redes.py`: `systemctl --user restart pc-dashboard.service`.
+   | Chave | Pra que serve | Sem ela |
+   |---|---|---|
+   | `monitor` | saída do xrandr onde o painel abre | `DP-0` |
+   | `rede` | interface de rede dos gráficos | a da rota padrão |
+   | `discos` | lista de `{caminho, nome}` mostrados no card de discos | só `/` |
+   | `cpu_tdp_w` | TDP da CPU pra barra de consumo | mostra só os watts |
+
+4. Atalhos: copie `atalhos.exemplo.json` pra `~/.config/pc-dashboard/atalhos.json` e ajuste. Cada item é `{id, label, icon, cmd}`, e só os ids desse arquivo podem ser executados.
+
+Depois de mudar `server.py`, `redes.py` ou `onedrive.py`: `systemctl --user restart pc-dashboard.service`.
 
 ## Configurando as redes
 
@@ -118,10 +129,12 @@ Se a URI cadastrada no TikTok for outra, informe o endereço exato em `tiktok.re
 
 | Arquivo | O que é |
 |---|---|
+| `~/.config/pc-dashboard/config.json` | monitor, rede, discos e TDP da máquina |
 | `~/.config/pc-dashboard/redes.json` | credenciais das redes |
 | `~/.config/pc-dashboard/redes-tokens.json` | tokens renovados (Instagram, TikTok) |
 | `~/.config/pc-dashboard/redes-historico.json` | histórico diário pro "+N hoje" e a tendência |
 | `~/.config/pc-dashboard/atalhos.json` | atalhos da página de atalhos |
+| `~/.config/pc-dashboard/onedrive-cota.json` | última cota lida do OneDrive (cache de 1 h) |
 | `~/.config/pc-dashboard/chrome/` | perfil do Chrome do painel |
 
 ## Segurança

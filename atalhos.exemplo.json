@@ -27,12 +27,11 @@
     ]
   },
   {
-    "id": "ssd",
-    "label": "Arquivos do SSD",
+    "id": "arquivos",
+    "label": "Arquivos",
     "icon": "📁",
     "cmd": [
-      "nemo",
-      "/mnt/SSD"
+      "nemo"
     ]
   },
   {

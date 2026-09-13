@@ -13,6 +13,7 @@ import time
 from pathlib import Path
 
 CONFIG = Path.home() / ".config/onedrive/config"
+QUOTA_CACHE = Path.home() / ".config/pc-dashboard/onedrive-cota.json"  # sobrevive a reinicios do painel
 QUOTA_EVERY = 3600  # --display-quota reescreve o token do cliente: pouca frequencia
 LOCAL_EVERY = 600
 
@@ -95,7 +96,12 @@ class OneDrive:
 
     # --- servico, cota e pasta local ---
     def _poll(self):
-        next_quota = next_local = 0
+        next_local = 0
+        try:
+            self._quota = json.loads(QUOTA_CACHE.read_text())
+            next_quota = self._quota["t"] + QUOTA_EVERY
+        except (OSError, ValueError, KeyError, TypeError):
+            next_quota = 0
         while True:
             now = time.time()
             self._active = subprocess.run(["systemctl", "--user", "is-active", "onedrive"],
@@ -105,7 +111,13 @@ class OneDrive:
                 self._local = self._scan(_sync_dir())
             if now >= next_quota and self._active == "active":
                 next_quota = now + QUOTA_EVERY
-                self._quota = self._read_quota() or self._quota
+                q = self._read_quota()
+                if q:
+                    self._quota = q
+                    try:
+                        QUOTA_CACHE.write_text(json.dumps(q))
+                    except OSError:
+                        pass
             self._publish()
             time.sleep(10)
 

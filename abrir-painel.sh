@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
-# Abre o Painel do PC em tela cheia no monitor virtual DP-0.
+# Abre o Painel do PC em tela cheia no monitor configurado (config.json -> "monitor", padrao DP-0).
 set -u
 URL="http://127.0.0.1:8787"
-OUTPUT="DP-0"
+OUTPUT=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("monitor") or "DP-0")' \
+         "$HOME/.config/pc-dashboard/config.json" 2>/dev/null || echo DP-0)
 PROFILE="$HOME/.config/pc-dashboard/chrome"
 
 systemctl --user start pc-dashboard.service
