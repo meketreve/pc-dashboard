@@ -61,7 +61,7 @@ Dashboard em tela cheia que roda num **monitor virtual** do Linux e é transmiti
 - `abrir-painel.sh` sobe o serviço e abre o Chrome em modo app, em tela cheia no `DP-0`
 - O painel se recarrega sozinho quando o `index.html` muda
 
-O monitor virtual e a instância do Sunshine só pro tablet ficam no repo irmão **pc-streaming**.
+O monitor virtual e a instância do Sunshine só pro tablet ficam no repo irmão [**pc-streaming**](https://github.com/meketreve/pc-streaming).
 
 ## Instalação
 
@@ -159,3 +159,7 @@ Se a URI cadastrada no TikTok for outra, informe o endereço exato em `tiktok.re
 | `POST /api/run/<id>` | executa um atalho (exige `X-Dash: 1`) |
 | `GET /api/version` | data do `index.html`, pra recarga automática |
 | `GET /tiktok/login` | inicia a autorização do TikTok |
+
+## Licença
+
+[MIT](LICENSE)
