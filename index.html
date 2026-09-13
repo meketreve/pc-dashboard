@@ -309,6 +309,7 @@
 
 <script>
 const HISTORY = 90; // segundos de historico nos graficos
+// Toda requisicao curta tem tempo limite: uma conexao pendurada (ex.: servidor reiniciando) nao pode travar o painel
 const hist = { cpu: [], ram: [], gpu: [], vram: [], rx: [], tx: [] };
 const fmtN = (v, d = 0) => v == null ? "—" : v.toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
 const GiB = 1024 ** 3;
@@ -549,7 +550,7 @@ function mediaProgress() {
 
 async function tick() {
   try {
-    const r = await fetch("/api/stats", { cache: "no-store" });
+    const r = await fetch("/api/stats", { cache: "no-store", signal: AbortSignal.timeout(8000) });
     const s = await r.json();
     if (s.cpu) render(s);
     document.getElementById("conn").classList.remove("show");
@@ -569,7 +570,7 @@ let shortcutsSig = null;
 async function loadShortcuts() {
   const box = document.getElementById("shortcuts");
   try {
-    const items = await (await fetch("/api/shortcuts", { cache: "no-store" })).json();
+    const items = await (await fetch("/api/shortcuts", { cache: "no-store", signal: AbortSignal.timeout(8000) })).json();
     const sig = JSON.stringify(items);
     if (sig === shortcutsSig) return; // so redesenha se o atalhos.json mudou
     shortcutsSig = sig;
@@ -722,7 +723,7 @@ function renderRedes() {
 }
 
 async function loadRedes() {
-  try { redesData = await (await fetch("/api/redes", { cache: "no-store" })).json(); } catch (e) { return; }
+  try { redesData = await (await fetch("/api/redes", { cache: "no-store", signal: AbortSignal.timeout(8000) })).json(); } catch (e) { return; }
   // Seguidor novo: o texugo comemora
   for (const r of REDES) {
     const n = redesData[r.id]?.followers;
@@ -1026,7 +1027,7 @@ loadRedes(); setInterval(loadRedes, 30000);
 let version = null;
 setInterval(async () => {
   try {
-    const v = (await (await fetch("/api/version", { cache: "no-store" })).json()).index;
+    const v = (await (await fetch("/api/version", { cache: "no-store", signal: AbortSignal.timeout(8000) })).json()).index;
     if (version != null && v !== version) location.reload();
     version = v;
   } catch (e) {}
