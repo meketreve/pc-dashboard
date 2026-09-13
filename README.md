@@ -1,8 +1,8 @@
-# 🦡 Painel do PC
+# 🦡 Toca do Texugo
 
 Dashboard em tela cheia que roda num **monitor virtual** do Linux e é transmitido pro **tablet** com Sunshine + Moonlight. Mostra o hardware em tempo real, um visualizador que reage à música tocando, os números das redes sociais e tem um texugo em pixel art passeando por cima dos cards.
 
-![Painel do PC rodando no monitor virtual](docs/painel.png)
+![Toca do Texugo rodando no monitor virtual](docs/painel.png)
 
 ## O que tem
 
@@ -61,7 +61,7 @@ Dashboard em tela cheia que roda num **monitor virtual** do Linux e é transmiti
 - `abrir-painel.sh` sobe o serviço e abre o Chrome em modo app, em tela cheia no `DP-0`
 - O painel se recarrega sozinho quando o `index.html` muda
 
-O monitor virtual e a instância do Sunshine só pro tablet ficam no repo irmão [**pc-streaming**](https://github.com/meketreve/pc-streaming).
+Pra mostrar a tela no tablet, usei o [**monitor-virtual-tablet**](https://github.com/meketreve/monitor-virtual-tablet): um monitor virtual na placa NVIDIA transmitido por uma segunda instância do Sunshine.
 
 ## Instalação
 
@@ -74,7 +74,7 @@ Precisa de Python 3 com `psutil`, `google-chrome`, `wmctrl`, `xrandr`, `curl`, `
    Description=Painel do PC (servidor local 127.0.0.1:8787)
 
    [Service]
-   ExecStart=/usr/bin/python3 /caminho/para/pc-dashboard/server.py
+   ExecStart=/usr/bin/python3 /caminho/para/toca-do-texugo/server.py
    KillMode=process
    Restart=on-failure
    RestartSec=3s
@@ -86,7 +86,7 @@ Precisa de Python 3 com `psutil`, `google-chrome`, `wmctrl`, `xrandr`, `curl`, `
    [Desktop Entry]
    Type=Application
    Name=Painel do PC
-   Exec=sh -c "sleep 15; bash /caminho/para/pc-dashboard/abrir-painel.sh"
+   Exec=sh -c "sleep 15; bash /caminho/para/toca-do-texugo/abrir-painel.sh"
    X-GNOME-Autostart-enabled=true
    NoDisplay=true
    ```
