@@ -2,6 +2,7 @@
 """Painel do PC: servidor local (127.0.0.1) com metricas do sistema e atalhos.
 
 Metricas: /api/stats (JSON, atualizado 1x/s por uma thread de coleta).
+OneDrive: campo "onedrive" do /api/stats (ver onedrive.py).
 Redes:    /api/redes, contadores do YouTube/Twitch/... (ver redes.py).
 Audio:    /api/audio, PCM s16le mono 24 kHz do monitor da saida padrao (o navegador faz a FFT).
 Atalhos:  POST /api/run/<id>, somente ids definidos em ~/.config/pc-dashboard/atalhos.json.
@@ -19,6 +20,7 @@ from pathlib import Path
 
 import psutil
 
+from onedrive import OneDrive
 from redes import Redes
 
 HOST, PORT = "127.0.0.1", 8787
@@ -282,6 +284,7 @@ class Collector:
 
 COLLECTOR = Collector()
 REDES = Redes()
+ONEDRIVE = OneDrive()
 
 
 def monitor_source():
@@ -311,7 +314,7 @@ class Handler(BaseHTTPRequestHandler):
         if self.path in ("/", "/index.html"):
             return self._send(200, (BASE / "index.html").read_bytes(), "text/html; charset=utf-8")
         if self.path == "/api/stats":
-            return self._send(200, json.dumps(COLLECTOR.stats))
+            return self._send(200, json.dumps({**COLLECTOR.stats, "onedrive": ONEDRIVE.state}))
         if self.path == "/api/shortcuts":
             items = [{k: s.get(k) for k in ("id", "label", "icon")} for s in load_shortcuts()]
             return self._send(200, json.dumps(items, ensure_ascii=False))

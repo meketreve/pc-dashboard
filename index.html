@@ -103,7 +103,7 @@
 
   .net-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
   .net-grid .value { font-size: 30px; font-weight: 600; }
-  .net-grid .spark-wrap { height: 60px; }
+  .net-grid .spark-wrap { height: 46px; }
 
   table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
   th { text-align: left; font-weight: 500; font-size: 16px; color: var(--muted); padding: 0 0 8px; border-bottom: 1px solid var(--grid); }
@@ -167,6 +167,21 @@
   .trend-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 16px; border-top: 1px solid var(--axis); }
   .rede-foot { font-size: 15px; color: var(--muted); }
   .procs-card { overflow: hidden; }
+  .col3 { grid-template-rows: auto minmax(0, 1fr) auto; }
+  .io2 { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 14px; }
+  .od-card { overflow: hidden; display: grid; grid-template-rows: auto auto minmax(0, 1fr); padding: 12px 20px; }
+  .od-card h2 { margin-bottom: 6px; }
+  .od-card .meter { height: 8px; }
+  .od-local { font-size: 16px; color: var(--text-2); margin-top: 6px; }
+  .od-local b { color: var(--text); font-weight: 600; }
+  .od-status { font-size: 16px; color: var(--text); white-space: nowrap; }
+  .od-status .i { margin-right: 6px; }
+  .od-status .spin { display: inline-block; animation: spin 1.2s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .od-act { display: grid; gap: 4px; margin-top: 8px; align-content: start; min-height: 0; overflow: hidden; }
+  .od-act .a { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; gap: 8px; font-size: 16px; color: var(--text-2); }
+  .od-act .a .f { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+  .od-act .a .t { color: var(--muted); }
   .redes-mini { cursor: pointer; }
   /* Tabelinha: colunas alinhadas entre as linhas (cada .rm e display: contents) */
   .redes-mini .rows { display: grid; grid-template-columns: 22px minmax(0, 1fr) repeat(4, auto); column-gap: 16px; row-gap: 8px; align-items: baseline; }
@@ -253,11 +268,16 @@
         <div class="rows" id="sensors"></div>
       </div>
     </div>
-    <div class="col">
+    <div class="col col3">
       <div class="card">
         <h2>Discos</h2>
         <div id="disks"></div>
-        <div class="rows" style="margin-top:16px" id="diskio"></div>
+        <div class="io2" id="diskio"></div>
+      </div>
+      <div class="card od-card" id="od-card" hidden>
+        <div class="cores-head"><h2>OneDrive</h2><span class="od-status" id="od-status"></span></div>
+        <div id="od-main"></div>
+        <div class="od-act" id="od-act"></div>
       </div>
       <div class="card">
         <h2>Rede</h2>
@@ -510,8 +530,40 @@ function render(s) {
   const v = s.volume;
   document.getElementById("vol").textContent = v ? (v.muted ? "mudo" : v.pct + "%") : "—";
 
+  renderOneDrive(s.onedrive);
+
   pcHot = c.pct > 90 || c.temp > 85 || (g != null && g.temp > 84);
   renderMedia(s.media);
+}
+
+/* OneDrive: estado da sync, cota e ultimas atividades (abraunegg/onedrive via journal) */
+const agoS = t => { const s = Date.now() / 1000 - t; return s < 60 ? "agora" : s < 3600 ? `há ${Math.floor(s / 60)} min` : s < 86400 ? `há ${Math.floor(s / 3600)} h` : `há ${Math.floor(s / 86400)} d`; };
+const OD_STATUS = {
+  ok:       t => `<span class="i" style="color:var(--good)">✓</span>sincronizado${t ? " · " + agoS(t) : ""}`,
+  syncing:  () => '<span class="i spin" style="color:var(--accent)">⟳</span>sincronizando…',
+  error:    () => '<span class="i" style="color:var(--warning)">⚠</span>erro na sincronização',
+  offline:  () => '<span class="i" style="color:var(--warning)">⚠</span>sem conexão',
+  stopped:  () => '<span class="i" style="color:var(--critical)">⛔</span>serviço parado',
+  starting: () => '<span class="i" style="color:var(--muted)">…</span>iniciando',
+};
+const OD_ICON = { up: "↑", down: "↓", del: "✕", new: "+", move: "⇄" };
+function renderOneDrive(o) {
+  const card = document.getElementById("od-card");
+  card.hidden = !o || !o.installed;
+  if (card.hidden || !o.status) return;
+  document.getElementById("od-status").innerHTML = OD_STATUS[o.status](o.last_sync);
+  const q = o.quota, L = o.local;
+  const localLine = L ? `<div class="od-local">Pasta local <b>${fmtBytes(L.size)}</b> · ${fmtN(L.files)} arquivos</div>` : "";
+  document.getElementById("od-main").innerHTML = (q
+    ? meterBlock("Nuvem", `${fmtBytes(q.used)} <small>de ${fmtBytes(q.total)}</small>`, 100 * q.used / q.total, level(100 * q.used / q.total, 85, 95))
+    : "") + localLine;
+  const act = document.getElementById("od-act");
+  const items = (o.status === "error" && o.error ? [`<div class="a"><span style="color:var(--warning)">⚠</span><span class="f">${esc(o.error.msg)}</span><span class="t">${agoS(o.error.t)}</span></div>`] : [])
+    .concat((o.activity || []).map(a => `<div class="a"><span>${a.ok ? OD_ICON[a.kind] : '<span style="color:var(--warning)">⚠</span>'}</span><span class="f">${esc(a.name)}</span><span class="t">${agoS(a.t)}</span></div>`));
+  act.innerHTML = items.length ? items.join("") : '<div class="a"><span></span><span class="t">nenhuma alteração recente</span></div>';
+  // So as linhas que cabem no card
+  const limit = card.getBoundingClientRect().bottom - 14;
+  while (act.childElementCount > 1 && act.lastElementChild.getBoundingClientRect().bottom > limit) act.lastElementChild.remove();
 }
 
 /* Tocando agora (MPRIS via servidor). Posicao vem a cada 2 s; entre leituras, interpola. */

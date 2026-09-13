@@ -12,6 +12,11 @@ Dashboard em tela cheia que roda num **monitor virtual** do Linux e é transmiti
 - Discos, leitura e escrita, rede e os processos mais pesados (a lista se ajusta ao espaço)
 - Volume, carga e uptime no cabeçalho
 
+**OneDrive** (cliente [abraunegg/onedrive](https://github.com/abraunegg/onedrive))
+- Estado da sincronização em tempo real (sincronizado há X, sincronizando, erro, sem conexão, serviço parado), lido do journal do serviço
+- Cota da nuvem (`onedrive --display-quota`, 1× por hora), tamanho e número de arquivos da pasta local
+- Últimos uploads, downloads e exclusões
+
 **Música**
 - **Tocando agora** pelo MPRIS (Spotify, navegador, VLC…): capa, título, artista e progresso
 - **Visualizador de áudio** de 64 barras que capta o som do PC (qualquer programa), com FFT feita no navegador e ganho automático
@@ -49,6 +54,7 @@ Dashboard em tela cheia que roda num **monitor virtual** do Linux e é transmiti
 
 - `server.py` coleta as métricas numa thread (1×/s), serve a página e só escuta em `127.0.0.1`
 - `index.html` é a página inteira (HTML, CSS e JS, sem dependências): gráficos em SVG, visualizador e mascote em canvas
+- `onedrive.py` acompanha o journal do serviço `onedrive` e lê a cota; nunca mexe no token do cliente
 - `redes.py` busca os números das redes em segundo plano, guarda o histórico diário e renova os tokens sozinho
 - `abrir-painel.sh` sobe o serviço e abre o Chrome em modo app, em tela cheia no `DP-0`
 - O painel se recarrega sozinho quando o `index.html` muda
@@ -133,7 +139,7 @@ Se a URI cadastrada no TikTok for outra, informe o endereço exato em `tiktok.re
 | Rota | Conteúdo |
 |---|---|
 | `GET /` | a página do painel |
-| `GET /api/stats` | métricas do PC + música atual (JSON, 1×/s) |
+| `GET /api/stats` | métricas do PC, música atual e status do OneDrive (JSON, 1×/s) |
 | `GET /api/audio` | PCM s16le mono 24 kHz do som do PC (stream) |
 | `GET /api/redes` | números das redes, "+hoje" e histórico |
 | `GET /api/shortcuts` | lista de atalhos (sem os comandos) |
