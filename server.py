@@ -2,6 +2,7 @@
 """Painel do PC: servidor local (127.0.0.1) com metricas do sistema e atalhos.
 
 Metricas: /api/stats (JSON, atualizado 1x/s por uma thread de coleta).
+Redes:    /api/redes, contadores do YouTube/Twitch/... (ver redes.py).
 Audio:    /api/audio, PCM s16le mono 24 kHz do monitor da saida padrao (o navegador faz a FFT).
 Atalhos:  POST /api/run/<id>, somente ids definidos em ~/.config/pc-dashboard/atalhos.json.
 """
@@ -16,6 +17,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 import psutil
+
+from redes import Redes
 
 HOST, PORT = "127.0.0.1", 8787
 BASE = Path(__file__).resolve().parent
@@ -277,6 +280,7 @@ class Collector:
 
 
 COLLECTOR = Collector()
+REDES = Redes()
 
 
 def monitor_source():
@@ -310,6 +314,10 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/shortcuts":
             items = [{k: s.get(k) for k in ("id", "label", "icon")} for s in load_shortcuts()]
             return self._send(200, json.dumps(items, ensure_ascii=False))
+        if self.path == "/api/version":  # o painel se recarrega quando o index.html muda
+            return self._send(200, json.dumps({"index": (BASE / "index.html").stat().st_mtime}))
+        if self.path == "/api/redes":
+            return self._send(200, json.dumps(REDES.data, ensure_ascii=False))
         if self.path == "/api/audio":
             return self._stream_audio()
         self._send(404, '{"error":"not found"}')

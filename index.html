@@ -141,6 +141,36 @@
   .viz-wrap { position: relative; min-width: 0; }
   #viz { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 
+  /* Redes */
+  #page-redes { grid-template-rows: minmax(0, 1fr); }
+  .redes { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, minmax(0, 1fr)); gap: var(--gap); min-height: 0; }
+  .rede { display: grid; grid-template-rows: auto auto auto auto minmax(0, 1fr) auto; gap: 14px; min-height: 0; }
+  .rede-head { display: flex; align-items: center; gap: 10px; }
+  .rede-head h2 { margin: 0; color: var(--text-2); font-size: 20px; }
+  .rede-head svg { width: 22px; height: 22px; color: var(--text-2); flex: none; }
+  .rede-handle { color: var(--muted); font-size: 18px; }
+  .rede-head .spacer { flex: 1; }
+  .rede-status { font-size: 18px; color: var(--text); }
+  .rede-status .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--critical); margin-right: 8px; vertical-align: 1px; }
+  .hero { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; }
+  .hero-v { font-size: 84px; font-weight: 600; line-height: 1; font-variant-numeric: tabular-nums; }
+  .hero-l { font-size: 24px; color: var(--text-2); }
+  .hero-d { font-size: 20px; color: var(--text-2); margin-left: 6px; }
+  .up { color: var(--good); }
+  .rede-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+  .rede-stats .k { font-size: 16px; color: var(--muted); }
+  .rede-stats .v { font-size: 30px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rede-stats .d { font-size: 16px; color: var(--text-2); min-height: 1.2em; }
+  .rede-extra { font-size: 18px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 1.3em; }
+  .rede-extra b { color: var(--text); font-weight: 600; }
+  .rede .spark-wrap { height: auto; min-height: 60px; margin: 0; }
+  .trend-empty { position: absolute; inset: 0; display: grid; place-items: center; color: var(--muted); font-size: 16px; border-top: 1px solid var(--axis); }
+  .rede-foot { font-size: 15px; color: var(--muted); }
+  .rede.off .hero-v { color: var(--muted); font-size: 40px; font-weight: 500; }
+  .live { display: inline-flex; align-items: center; }
+  .live .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--critical); margin-right: 8px; animation: pulse 1.6s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .35; } }
+
   /* Mascote */
   #mascot { position: fixed; left: 0; top: 0; z-index: 10; cursor: pointer; will-change: transform; touch-action: none; }
   #mascot canvas {
@@ -164,6 +194,7 @@
     <span class="date" id="date"></span>
     <span class="conn" id="conn">sem conexão com o servidor do painel</span>
     <span class="spacer"></span>
+    <span class="meta live" id="live" hidden><i class="dot"></i>AO VIVO na Twitch · <b id="live-v" style="margin-left:6px">0</b>&nbsp;assistindo</span>
     <span class="meta">Volume <b id="vol">—</b></span>
     <span class="meta">Carga <b id="load">—</b></span>
     <span class="meta">Ligado há <b id="uptime">—</b></span>
@@ -245,6 +276,10 @@
     </div>
     <div class="viz-wrap"><canvas id="viz"></canvas></div>
   </section>
+  </main>
+
+  <main class="page" id="page-redes" hidden>
+    <section class="redes" id="redes"></section>
   </main>
 
   <main class="page" id="page-atalhos" hidden>
@@ -537,11 +572,15 @@ async function loadShortcuts() {
 }
 
 /* ---------- Paginas: painel e atalhos ---------- */
-const PAGES = ["page-dash", "page-atalhos"];
+const PAGES = ["page-dash", "page-redes", "page-atalhos"];
+const ATALHOS = 2;
+// O botao mostra o icone da PROXIMA pagina
 const PAGER_ICONS = [
-  // no painel: icone de grade (vai pros atalhos)
+  // painel -> redes: pessoas
+  '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7.5" cy="7" r="3"/><path d="M2 17c.6-3 2.8-4.5 5.5-4.5S12.4 14 13 17"/><path d="M13 4.3a3 3 0 0 1 0 5.4M15.5 12.8c1.4.7 2.2 2.1 2.5 4.2"/></svg>',
+  // redes -> atalhos: grade
   '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="2" width="6.5" height="6.5" rx="1.5"/><rect x="11.5" y="2" width="6.5" height="6.5" rx="1.5"/><rect x="2" y="11.5" width="6.5" height="6.5" rx="1.5"/><rect x="11.5" y="11.5" width="6.5" height="6.5" rx="1.5"/></svg>',
-  // nos atalhos: icone de grafico (volta pro painel)
+  // atalhos -> painel: grafico
   '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 17h14M5 14V9M10 14V4M15 14v-6"/></svg>',
 ];
 const BACK_AFTER = 90000; // atalhos voltam sozinhos pro painel depois de 90 s sem toque
@@ -556,10 +595,118 @@ function showPage(i) {
   document.getElementById("pager").innerHTML = PAGER_ICONS[i];
   armBack();
   tick();
+  if (PAGES[i] === "page-redes") renderRedes();
 }
 function armBack() {
   clearTimeout(backTimer);
-  if (page !== 0) backTimer = setTimeout(() => showPage(0), BACK_AFTER);
+  if (page === ATALHOS) backTimer = setTimeout(() => showPage(0), BACK_AFTER);
+}
+
+/* ---------- Redes sociais ---------- */
+const REDES = [
+  { id: "youtube", nome: "YouTube", seg: "inscritos",
+    icon: '<rect x="2" y="5" width="18" height="13" rx="4"/><path d="M9.5 8.8v5.4l4.6-2.7z" fill="currentColor"/>' },
+  { id: "twitch", nome: "Twitch", seg: "seguidores",
+    icon: '<path d="M4 3h15v10l-4 4h-4l-3 3v-3H4z"/><path d="M10 7.5v4M14.5 7.5v4"/>' },
+  { id: "instagram", nome: "Instagram", seg: "seguidores",
+    icon: '<rect x="3" y="3" width="16" height="16" rx="4.5"/><circle cx="11" cy="11" r="3.8"/><circle cx="15.6" cy="6.4" r=".9" fill="currentColor"/>' },
+  { id: "tiktok", nome: "TikTok", seg: "seguidores",
+    icon: '<path d="M12.5 3v11.5a3.5 3.5 0 1 1-3.5-3.5"/><path d="M12.5 3c.4 2.6 2.1 4.2 4.8 4.4"/>' },
+];
+let redesData = {};
+const redesPrev = {};
+const signed = v => (v > 0 ? "+" : v < 0 ? "−" : "") + fmtN(Math.abs(v));
+const agoMin = t => { const m = Math.round((Date.now() / 1000 - t) / 60); return m < 1 ? "agora" : m < 60 ? `há ${m} min` : `há ${Math.round(m / 60)} h`; };
+const deltaHtml = (d, suffix = " hoje") => d ? `${d > 0 ? '<span class="up">▲</span> ' : ""}${signed(d)}${suffix}` : "";
+
+(function buildRedes() {
+  const box = document.getElementById("redes");
+  for (const r of REDES) {
+    const el = document.createElement("div");
+    el.className = "card rede off"; el.dataset.rede = r.id;
+    el.innerHTML = `
+      <div class="rede-head"><svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round">${r.icon}</svg>
+        <h2>${r.nome}</h2><span class="rede-handle" data-f="handle"></span><span class="spacer"></span><span class="rede-status" data-f="status"></span></div>
+      <div class="hero"><span class="hero-v" data-f="hero">—</span><span class="hero-l">${r.seg}</span><span class="hero-d" data-f="delta"></span></div>
+      <div class="rede-stats" data-f="stats"></div>
+      <div class="rede-extra" data-f="extra"></div>
+      <div class="spark-wrap"><svg class="spark" data-f="trend"></svg><div class="readout" hidden></div></div>
+      <div class="rede-foot" data-f="foot"></div>`;
+    box.appendChild(el);
+  }
+})();
+
+/* Tendencia de 30 dias: escala min-max propria (seguidores nao comecam em zero) */
+function drawTrend(svg, data) {
+  const wrap = svg.parentElement;
+  let empty = wrap.querySelector(".trend-empty");
+  if (data.length < 2) {
+    svg.innerHTML = "";
+    if (!empty) { empty = document.createElement("div"); empty.className = "trend-empty"; wrap.appendChild(empty); }
+    empty.textContent = data.length ? "a tendência dos últimos 30 dias aparece a partir de amanhã" : "";
+    return;
+  }
+  if (empty) empty.remove();
+  const w = svg.clientWidth, h = svg.clientHeight;
+  if (!w || !h) return;
+  svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  const pad = 6, lo = Math.min(...data), hi = Math.max(...data), span = Math.max(hi - lo, 1);
+  const x = i => pad + (w - 2 * pad) * i / (data.length - 1);
+  const y = v => h - pad - (h - 2 * pad) * (v - lo) / span;
+  const pts = data.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`), last = data.length - 1;
+  svg.innerHTML =
+    `<line x1="${pad}" x2="${w - pad}" y1="${h - pad}" y2="${h - pad}" stroke="var(--axis)" stroke-width="1"/>` +
+    `<path d="M${pts[0]} L${pts.join(" L")} L${x(last)},${h - pad} L${x(0)},${h - pad}Z" fill="var(--accent-wash)"/>` +
+    `<polyline points="${pts.join(" ")}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>` +
+    `<circle cx="${x(last)}" cy="${y(data[last])}" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>`;
+}
+
+function stat(k, v, d = "") { return `<div><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d}</div></div>`; }
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+
+function renderRedes() {
+  for (const r of REDES) {
+    const d = redesData[r.id] || {}, el = document.querySelector(`.rede[data-rede="${r.id}"]`);
+    const f = k => el.querySelector(`[data-f="${k}"]`);
+    const has = d.followers != null;
+    el.classList.toggle("off", !has);
+    f("handle").textContent = d.handle ? (d.handle.startsWith("@") ? d.handle : "@" + d.handle) : "";
+    f("hero").textContent = has ? fmtN(d.followers) : d.configured ? "…" : "em breve";
+    const t = d.today || {};
+    f("delta").innerHTML = deltaHtml(t.followers);
+    f("status").innerHTML = r.id === "twitch" && d.live ? '<i class="dot"></i>Ao vivo' : "";
+    let stats = "", extra = "";
+    if (r.id === "youtube" && has) {
+      stats = stat("Views do canal", fmtN(d.views), deltaHtml(t.views)) + stat("Likes nos vídeos", fmtN(d.likes), deltaHtml(t.likes)) + stat("Vídeos", fmtN(d.posts));
+      if (d.latest) extra = `Último vídeo: <b>${esc(d.latest.title)}</b> · ${fmtN(d.latest.views)} views · ${fmtN(d.latest.likes)} likes`;
+    } else if (r.id === "twitch" && has) {
+      const L = d.live;
+      stats = stat("Status", L ? "Ao vivo" : "Offline", L ? "desde " + new Date(L.started).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "")
+            + stat("Assistindo agora", L ? fmtN(L.viewers) : "—") + stat("Jogo", L ? esc(L.game) : "—");
+      extra = L ? `<b>${esc(L.title)}</b>` : "";
+    }
+    f("stats").innerHTML = stats;
+    f("extra").innerHTML = extra;
+    drawTrend(f("trend"), (d.series || []).filter(v => v != null));
+    f("foot").innerHTML = !d.configured ? "Ainda não configurado: falta a credencial no redes.json"
+      : d.ok === false ? `${levelIcon("warn")}Erro na última leitura: ${esc(d.error)}${d.updated ? " · dados de " + agoMin(d.updated) : ""}`
+      : d.updated ? `atualizado ${agoMin(d.updated)}` : "carregando…";
+  }
+}
+
+async function loadRedes() {
+  try { redesData = await (await fetch("/api/redes", { cache: "no-store" })).json(); } catch (e) { return; }
+  // Seguidor novo: o texugo comemora
+  for (const r of REDES) {
+    const n = redesData[r.id]?.followers;
+    if (n == null) continue;
+    if (redesPrev[r.id] != null && n > redesPrev[r.id]) celebrate(`+${n - redesPrev[r.id]} no ${r.nome}!`);
+    redesPrev[r.id] = n;
+  }
+  const L = redesData.twitch?.live;
+  document.getElementById("live").hidden = !L;
+  if (L) document.getElementById("live-v").textContent = fmtN(L.viewers);
+  if (PAGES[page] === "page-redes") renderRedes();
 }
 document.getElementById("pager").addEventListener("click", () => showPage((page + 1) % PAGES.length));
 document.getElementById("page-atalhos").addEventListener("pointerdown", armBack);
@@ -718,7 +865,7 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const M = { x: 300, y: -MH, el: null, dir: 1, state: "fall", until: 0, jump: null, lastBeat: 0, nextFx: 0, blinkUntil: 0, nextBlink: 0, nextSweat: 0 };
 
 function platforms() {
-  const sel = page === 0 ? "#page-dash .card" : "#page-atalhos .shortcuts button";
+  const sel = { "page-dash": "#page-dash .card", "page-redes": "#page-redes .card", "page-atalhos": "#page-atalhos .shortcuts button" }[PAGES[page]];
   return [...document.querySelectorAll(sel)].filter(el => el.getBoundingClientRect().width > MW + 24);
 }
 function spot(el) {
@@ -751,6 +898,10 @@ function bubble(txt, cls = "") {
   b.style.top = (M.y - MH - 30) + "px";
   document.body.appendChild(b);
   b.addEventListener("animationend", () => b.remove());
+}
+function celebrate(txt) {
+  bubble("🎉 " + txt, "love");
+  if (M.state !== "jump" && M.el) jumpTo(M.el, performance.now(), M.x);
 }
 mascotEl.addEventListener("pointerdown", () => {
   const now = performance.now();
@@ -832,7 +983,16 @@ showPage(0);
 clock(); setInterval(clock, 1000);
 tick(); setInterval(tick, 1000);
 loadShortcuts(); setInterval(loadShortcuts, 20000);
-window.addEventListener("resize", tick);
+loadRedes(); setInterval(loadRedes, 30000);
+let version = null;
+setInterval(async () => {
+  try {
+    const v = (await (await fetch("/api/version", { cache: "no-store" })).json()).index;
+    if (version != null && v !== version) location.reload();
+    version = v;
+  } catch (e) {}
+}, 5000);
+window.addEventListener("resize", () => { tick(); if (PAGES[page] === "page-redes") renderRedes(); });
 audioStream();
 requestAnimationFrame(frame);
 </script>

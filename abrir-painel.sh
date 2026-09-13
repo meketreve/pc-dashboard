@@ -15,16 +15,17 @@ if [[ -z "$GEO" ]]; then
 fi
 W=${GEO%%x*}; REST=${GEO#*x}; H=${REST%%+*}; REST=${REST#*+}; X=${REST%%+*}; Y=${REST#*+}
 
-# Ja aberto? so reposiciona.
-if ! wmctrl -lx | grep -q 'pc-dashboard'; then
+# Ja aberto? so reposiciona. (Olha so a classe da janela: o titulo de outra janela pode ter "pc-dashboard".)
+find_win() { wmctrl -lx | awk '$3 ~ /^[^ ]*pc-dashboard$/ {print $1; exit}'; }
+if [[ -z "$(find_win)" ]]; then
   google-chrome --user-data-dir="$PROFILE" --class=pc-dashboard --app="$URL" \
     --window-position="$X,$Y" --window-size="$W,$H" \
     --no-first-run --no-default-browser-check --password-store=basic \
     --disable-features=Translate --noerrdialogs --disable-session-crashed-bubble \
     >/dev/null 2>&1 &
-  for _ in $(seq 20); do wmctrl -lx | grep -q 'pc-dashboard' && break; sleep 0.5; done
+  for _ in $(seq 20); do [[ -n "$(find_win)" ]] && break; sleep 0.5; done
 fi
-WIN=$(wmctrl -lx | awk '$3 ~ /pc-dashboard/ {print $1; exit}')
+WIN=$(find_win)
 [[ -n "$WIN" ]] || exit 1
 wmctrl -i -r "$WIN" -b remove,fullscreen,maximized_vert,maximized_horz
 wmctrl -i -r "$WIN" -e "0,$X,$Y,$W,$H"
