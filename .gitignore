@@ -1,2 +1,10 @@
 __pycache__/
 *.pyc
+
+# Credenciais e dados privados: ficam em ~/.config/pc-dashboard, nunca aqui
+redes.json
+redes-tokens.json
+redes-historico.json
+*.pem
+*.key
+.env*

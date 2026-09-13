@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+# Bloqueia commit com chave, token ou dado privado.
+# Ativar num clone novo: git config core.hooksPath .githooks
+set -u
+
+fail=0
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+
+# 1) Arquivos que nunca entram no repo
+bad_names=$(printf '%s\n' "$staged" | grep -E '(^|/)(redes|redes-tokens|redes-historico|sunshine_state)\.json$|\.pem$|\.key$|(^|/)\.env|(^|/)credentials/' || true)
+if [[ -n "$bad_names" ]]; then
+  echo "✋ Arquivo privado no commit:"; printf '   %s\n' $bad_names; fail=1
+fi
+
+# 2) Formatos conhecidos de chave/token no que foi adicionado (a pasta .githooks fica de fora: tem os padroes)
+# So o nome do arquivo e mostrado, nunca o conteudo, pra chave nao parar no terminal.
+pattern='AIza[0-9A-Za-z_-]{30,}|gh[opsu]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sk-[A-Za-z0-9_-]{20,}|IG[A-Za-z0-9]{40,}|EAA[A-Za-z0-9]{40,}|(act|rft)\.[A-Za-z0-9!*_-]{20,}|BEGIN [A-Z ]*PRIVATE KEY|"(client_secret|access_token|refresh_token|api_key|client_key)"[[:space:]]*:[[:space:]]*"[^"]{8,}"'
+added=""
+while IFS= read -r f; do
+  [[ -z "$f" || "$f" == .githooks/* ]] && continue
+  lines=$(git diff --cached -U0 --no-color -- "$f" | grep '^+' | grep -v '^+++' || true)
+  added+="$lines"$'\n'
+  if printf '%s\n' "$lines" | grep -qE "$pattern"; then
+    echo "✋ Parece ter chave/token em: $f"; fail=1
+  fi
+done <<< "$staged"
+
+# 3) Os valores reais das credenciais locais (sem nunca imprimir o valor)
+leak=$(ADDED="$added" python3 - <<'EOF'
+import json, os, pathlib
+cfg = pathlib.Path.home() / ".config/pc-dashboard"
+vals = {}
+def walk(o, p=""):
+    if isinstance(o, dict):
+        for k, v in o.items(): walk(v, f"{p}.{k}")
+    elif isinstance(o, str) and len(o) >= 12 and any(w in p for w in ("key", "secret", "token", "client_id")):
+        vals[p] = o
+for f in ("redes.json", "redes-tokens.json"):
+    try: walk(json.loads((cfg / f).read_text()), f)
+    except (OSError, ValueError): pass
+added = os.environ["ADDED"]
+print(" ".join(k for k, v in vals.items() if v in added))
+EOF
+)
+if [[ -n "$leak" ]]; then
+  echo "✋ Credencial real do redes.json no commit: $leak"; fail=1
+fi
+
+if (( fail )); then
+  echo "Commit bloqueado. Tire isso do stage (git restore --staged <arquivo>) ou mova pra ~/.config."
+  exit 1
+fi

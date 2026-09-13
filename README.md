@@ -27,3 +27,7 @@ Pra abrir sozinho ao entrar na sessão, `~/.config/autostart/pc-dashboard.deskto
 Depende de `google-chrome`, `wmctrl`, `xrandr`, `curl`, `parec` (PulseAudio/PipeWire) e `busctl` (systemd).
 
 O painel se recarrega sozinho quando o `index.html` muda. Mudanças no `server.py` ou no `redes.py` precisam de `systemctl --user restart pc-dashboard.service`.
+
+## Segurança
+
+Chaves, tokens e pareamentos nunca entram no repo: ficam em `~/.config`. O hook `.githooks/pre-commit` bloqueia commit com arquivo privado, formato de chave conhecido ou o valor real de alguma credencial local. Num clone novo, ative com `git config core.hooksPath .githooks`.
