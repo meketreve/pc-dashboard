@@ -4,6 +4,7 @@ Credenciais em ~/.config/pc-dashboard/redes.json (fora do git; relido quando mud
 Historico diario em ~/.config/pc-dashboard/redes-historico.json (pra "+N hoje" e a tendencia de 30 dias).
 """
 import datetime
+import hashlib
 import json
 import threading
 import time
@@ -14,6 +15,7 @@ from pathlib import Path
 
 CONF = Path.home() / ".config/pc-dashboard/redes.json"
 HIST = Path.home() / ".config/pc-dashboard/redes-historico.json"
+TOKENS = Path.home() / ".config/pc-dashboard/redes-tokens.json"  # tokens renovados automaticamente
 HIST_DAYS = 30
 TRACKED = ("followers", "views", "likes")
 
@@ -139,8 +141,89 @@ class Twitch:
         }
 
 
+def _tokens():
+    try:
+        return json.loads(TOKENS.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def _save_tokens(data):
+    TOKENS.touch(mode=0o600, exist_ok=True)
+    TOKENS.write_text(json.dumps(data))
+
+
+class Instagram:
+    """Instagram API com login do Instagram (conta Profissional). Token de 60 dias, renovado aqui."""
+    interval = 900
+    API = "https://graph.instagram.com/v25.0/"
+    REFRESH_EVERY = 7 * 86400
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+
+    def configured(self):
+        return bool(self.cfg.get("access_token"))
+
+    def _token(self):
+        # O token colado no redes.json vale ate ser renovado; a versao renovada fica em redes-tokens.json.
+        # Se o usuario colar um token novo no redes.json, ele passa a valer.
+        base = hashlib.sha256(self.cfg["access_token"].encode()).hexdigest()
+        store = _tokens()
+        cur = store.get("instagram")
+        if not cur or cur.get("base") != base:
+            cur = {"base": base, "token": self.cfg["access_token"], "since": time.time()}
+            store["instagram"] = cur
+            _save_tokens(store)
+        # Renova com >24h de idade (exigencia da API) e depois a cada 7 dias
+        if time.time() - cur["since"] > (self.REFRESH_EVERY if cur.get("refreshed") else 86400):
+            try:
+                r = _get("https://graph.instagram.com/refresh_access_token?" + _q(grant_type="ig_refresh_token", access_token=cur["token"]))
+                cur.update(token=r["access_token"], since=time.time(), refreshed=True)
+                _save_tokens(store)
+            except ApiError:
+                pass  # tenta de novo na proxima leitura; o token atual ainda vale ate vencer
+        return cur["token"]
+
+    def fetch(self):
+        tok = self._token()
+        me = _get(self.API + "me?" + _q(fields="user_id,username,followers_count,media_count", access_token=tok))
+        likes, comments, latest, url, n = 0, 0, None, self.API + "me/media?" + _q(
+            fields="id,caption,like_count,comments_count,timestamp,media_type", limit=50, access_token=tok), 0
+        while url and n < 500:
+            page = _get(url)
+            for m in page.get("data", []):
+                likes += m.get("like_count", 0)
+                comments += m.get("comments_count", 0)
+                latest = latest or m
+                n += 1
+            url = page.get("paging", {}).get("next")
+        views = None
+        if latest:
+            try:  # precisa da permissao de insights; sem ela, so nao mostra
+                ins = _get(self.API + latest["id"] + "/insights?" + _q(metric="views", access_token=tok))
+                views = ins["data"][0]["values"][0]["value"]
+            except (ApiError, KeyError, IndexError):
+                pass
+        return {
+            "name": me.get("username"),
+            "handle": me.get("username") or self.cfg.get("usuario"),
+            "followers": me.get("followers_count", 0),
+            "likes": likes,
+            "comments": comments,
+            "posts": me.get("media_count", 0),
+            "latest": latest and {
+                "title": (latest.get("caption") or "").split("\n")[0][:120],
+                "likes": latest.get("like_count", 0),
+                "comments": latest.get("comments_count", 0),
+                "views": views,
+                "published": latest.get("timestamp"),
+            },
+        }
+
+
 class NaoConfigurado:
-    """Instagram e TikTok: ainda sem integracao."""
+    """TikTok: ainda sem integracao."""
     interval = 3600
 
     def __init__(self, cfg):
@@ -150,7 +233,7 @@ class NaoConfigurado:
         return False
 
 
-PROVIDERS = {"youtube": Youtube, "twitch": Twitch, "instagram": NaoConfigurado, "tiktok": NaoConfigurado}
+PROVIDERS = {"youtube": Youtube, "twitch": Twitch, "instagram": Instagram, "tiktok": NaoConfigurado}
 
 
 class Redes:
