@@ -28,7 +28,7 @@ done <<< "$staged"
 # 3) Os valores reais das credenciais locais (sem nunca imprimir o valor)
 leak=$(ADDED="$added" python3 - <<'EOF'
 import json, os, pathlib
-cfg = pathlib.Path.home() / ".config/pc-dashboard"
+cfg = pathlib.Path.home() / ".config/toca-do-texugo"
 vals = {}
 def walk(o, p=""):
     if isinstance(o, dict):

@@ -969,7 +969,8 @@ const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
 const M = { x: 300, y: -MH, el: null, dir: 1, state: "fall", until: 0, jump: null, lastBeat: 0, nextFx: 0, blinkUntil: 0, nextBlink: 0, nextSweat: 0 };
 
 function platforms() {
-  const sel = { "page-dash": "#page-dash .card", "page-redes": "#page-redes .card", "page-atalhos": "#page-atalhos .shortcuts button" }[PAGES[page]];
+  // Fileira de cima fica de fora: em cima dela o texugo cobre o cabecalho (volume, carga, uptime)
+  const sel = { "page-dash": "#page-dash .card:not(.tile)", "page-redes": "#page-redes .card", "page-atalhos": "#page-atalhos .shortcuts button" }[PAGES[page]];
   return [...document.querySelectorAll(sel)].filter(el => el.getBoundingClientRect().width > MW + 24);
 }
 function spot(el) {

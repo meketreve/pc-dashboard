@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""Painel do PC: servidor local (127.0.0.1) com metricas do sistema e atalhos.
+"""Toca do Texugo: servidor local (127.0.0.1) com metricas do sistema e atalhos.
 
 Metricas: /api/stats (JSON, atualizado 1x/s por uma thread de coleta).
 OneDrive: campo "onedrive" do /api/stats (ver onedrive.py).
 Redes:    /api/redes, contadores do YouTube/Twitch/... (ver redes.py).
 Audio:    /api/audio, PCM s16le mono 24 kHz do monitor da saida padrao (o navegador faz a FFT).
-Atalhos:  POST /api/run/<id>, somente ids definidos em ~/.config/pc-dashboard/atalhos.json.
+Atalhos:  POST /api/run/<id>, somente ids definidos em ~/.config/toca-do-texugo/atalhos.json.
 """
 import json
 import os
@@ -25,8 +25,8 @@ from redes import Redes
 
 HOST, PORT = "127.0.0.1", 8787
 BASE = Path(__file__).resolve().parent
-CONFIG = Path.home() / ".config/pc-dashboard/atalhos.json"
-SETTINGS_FILE = Path.home() / ".config/pc-dashboard/config.json"  # coisas da maquina (ver config.exemplo.json)
+CONFIG = Path.home() / ".config/toca-do-texugo/atalhos.json"
+SETTINGS_FILE = Path.home() / ".config/toca-do-texugo/config.json"  # coisas da maquina (ver config.exemplo.json)
 ALLOWED_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
 AUDIO_RATE = 24000
 MPRIS = "org.mpris.MediaPlayer2"

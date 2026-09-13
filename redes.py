@@ -1,7 +1,7 @@
 """Contadores das redes sociais pro painel.
 
-Credenciais em ~/.config/pc-dashboard/redes.json (fora do git; relido quando muda).
-Historico diario em ~/.config/pc-dashboard/redes-historico.json (pra "+N hoje" e a tendencia de 30 dias).
+Credenciais em ~/.config/toca-do-texugo/redes.json (fora do git; relido quando muda).
+Historico diario em ~/.config/toca-do-texugo/redes-historico.json (pra "+N hoje" e a tendencia de 30 dias).
 """
 import datetime
 import hashlib
@@ -14,9 +14,9 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-CONF = Path.home() / ".config/pc-dashboard/redes.json"
-HIST = Path.home() / ".config/pc-dashboard/redes-historico.json"
-TOKENS = Path.home() / ".config/pc-dashboard/redes-tokens.json"  # tokens renovados automaticamente
+CONF = Path.home() / ".config/toca-do-texugo/redes.json"
+HIST = Path.home() / ".config/toca-do-texugo/redes-historico.json"
+TOKENS = Path.home() / ".config/toca-do-texugo/redes-tokens.json"  # tokens renovados automaticamente
 HIST_DAYS = 30
 TRACKED = ("followers", "views", "likes")
 

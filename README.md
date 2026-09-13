@@ -36,8 +36,8 @@ Dashboard em tela cheia que roda num **monitor virtual** do Linux e é transmiti
 | Instagram | Instagram API com login do Instagram | seguidores, likes e comentários somados, posts, último post |
 
 **Texugo** 🦡
-- Anda por cima dos cards e pula de um pro outro, inclusive quando a página muda
-- Dança no ritmo da música, dorme quando fica parado (no print acima ele está cochilando em cima do card de música), sua quando o PC esquenta
+- Anda por cima dos cards (menos a fileira de cima, pra não cobrir o cabeçalho) e pula de um pro outro, inclusive quando a página muda
+- Dança no ritmo da música, dorme quando fica parado, sua quando o PC esquenta
 - Comemora quando entra seguidor novo; tocar nele ganha um coração
 
 **Páginas**: painel → redes → atalhos, trocadas por um botão discreto no canto inferior direito. A página de atalhos volta sozinha pro painel depois de 90 s sem toque.
@@ -67,11 +67,11 @@ Pra mostrar a tela no tablet, usei o [**monitor-virtual-tablet**](https://github
 
 Precisa de Python 3 com `psutil`, `google-chrome`, `wmctrl`, `xrandr`, `curl`, `parec` (PulseAudio/PipeWire), `busctl` (systemd) e `nvidia-smi` pra GPU.
 
-1. Serviço do usuário em `~/.config/systemd/user/pc-dashboard.service`:
+1. Serviço do usuário em `~/.config/systemd/user/toca-do-texugo.service`:
 
    ```ini
    [Unit]
-   Description=Painel do PC (servidor local 127.0.0.1:8787)
+   Description=Toca do Texugo (servidor local 127.0.0.1:8787)
 
    [Service]
    ExecStart=/usr/bin/python3 /caminho/para/toca-do-texugo/server.py
@@ -80,18 +80,18 @@ Precisa de Python 3 com `psutil`, `google-chrome`, `wmctrl`, `xrandr`, `curl`, `
    RestartSec=3s
    ```
 
-2. Pra abrir sozinho ao entrar na sessão, crie `~/.config/autostart/pc-dashboard.desktop` com:
+2. Pra abrir sozinho ao entrar na sessão, crie `~/.config/autostart/toca-do-texugo.desktop` com:
 
    ```ini
    [Desktop Entry]
    Type=Application
-   Name=Painel do PC
+   Name=Toca do Texugo
    Exec=sh -c "sleep 15; bash /caminho/para/toca-do-texugo/abrir-painel.sh"
    X-GNOME-Autostart-enabled=true
    NoDisplay=true
    ```
 
-3. Máquina: copie `config.exemplo.json` pra `~/.config/pc-dashboard/config.json` e ajuste (tudo é opcional):
+3. Máquina: copie `config.exemplo.json` pra `~/.config/toca-do-texugo/config.json` e ajuste (tudo é opcional):
 
    | Chave | Pra que serve | Sem ela |
    |---|---|---|
@@ -100,13 +100,13 @@ Precisa de Python 3 com `psutil`, `google-chrome`, `wmctrl`, `xrandr`, `curl`, `
    | `discos` | lista de `{caminho, nome}` mostrados no card de discos | só `/` |
    | `cpu_tdp_w` | TDP da CPU pra barra de consumo | mostra só os watts |
 
-4. Atalhos: copie `atalhos.exemplo.json` pra `~/.config/pc-dashboard/atalhos.json` e ajuste. Cada item é `{id, label, icon, cmd}`, e só os ids desse arquivo podem ser executados.
+4. Atalhos: copie `atalhos.exemplo.json` pra `~/.config/toca-do-texugo/atalhos.json` e ajuste. Cada item é `{id, label, icon, cmd}`, e só os ids desse arquivo podem ser executados.
 
-Depois de mudar `server.py`, `redes.py` ou `onedrive.py`: `systemctl --user restart pc-dashboard.service`.
+Depois de mudar `server.py`, `redes.py` ou `onedrive.py`: `systemctl --user restart toca-do-texugo.service`.
 
 ## Configurando as redes
 
-As credenciais ficam em `~/.config/pc-dashboard/redes.json` (`chmod 600`, **fora do repo**). O arquivo é relido quando muda, sem precisar reiniciar:
+As credenciais ficam em `~/.config/toca-do-texugo/redes.json` (`chmod 600`, **fora do repo**). O arquivo é relido quando muda, sem precisar reiniciar:
 
 ```json
 {
@@ -129,13 +129,13 @@ Se a URI cadastrada no TikTok for outra, informe o endereço exato em `tiktok.re
 
 | Arquivo | O que é |
 |---|---|
-| `~/.config/pc-dashboard/config.json` | monitor, rede, discos e TDP da máquina |
-| `~/.config/pc-dashboard/redes.json` | credenciais das redes |
-| `~/.config/pc-dashboard/redes-tokens.json` | tokens renovados (Instagram, TikTok) |
-| `~/.config/pc-dashboard/redes-historico.json` | histórico diário pro "+N hoje" e a tendência |
-| `~/.config/pc-dashboard/atalhos.json` | atalhos da página de atalhos |
-| `~/.config/pc-dashboard/onedrive-cota.json` | última cota lida do OneDrive (cache de 1 h) |
-| `~/.config/pc-dashboard/chrome/` | perfil do Chrome do painel |
+| `~/.config/toca-do-texugo/config.json` | monitor, rede, discos e TDP da máquina |
+| `~/.config/toca-do-texugo/redes.json` | credenciais das redes |
+| `~/.config/toca-do-texugo/redes-tokens.json` | tokens renovados (Instagram, TikTok) |
+| `~/.config/toca-do-texugo/redes-historico.json` | histórico diário pro "+N hoje" e a tendência |
+| `~/.config/toca-do-texugo/atalhos.json` | atalhos da página de atalhos |
+| `~/.config/toca-do-texugo/onedrive-cota.json` | última cota lida do OneDrive (cache de 1 h) |
+| `~/.config/toca-do-texugo/chrome/` | perfil do Chrome do painel |
 
 ## Segurança
 

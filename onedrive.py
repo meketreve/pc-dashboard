@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 
 CONFIG = Path.home() / ".config/onedrive/config"
-QUOTA_CACHE = Path.home() / ".config/pc-dashboard/onedrive-cota.json"  # sobrevive a reinicios do painel
+QUOTA_CACHE = Path.home() / ".config/toca-do-texugo/onedrive-cota.json"  # sobrevive a reinicios do painel
 QUOTA_EVERY = 3600  # --display-quota reescreve o token do cliente: pouca frequencia
 LOCAL_EVERY = 600
 
