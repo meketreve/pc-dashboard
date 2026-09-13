@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Painel do PC</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --page: #0d0d0d;
+    --surface: #1a1a19;
+    --border: rgba(255,255,255,0.10);
+    --text: #ffffff;
+    --text-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --accent: #3987e5;
+    --accent-wash: rgba(57,135,229,0.10);
+    --track: rgba(57,135,229,0.13);
+    --warning: #fab219;
+    --critical: #d03b3b;
+    --good: #0ca30c;
+    --gap: 16px;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--page); color: var(--text); overflow: hidden; }
+  body { font-size: 20px; user-select: none; -webkit-user-select: none; }
+
+  .app {
+    height: 100vh; padding: var(--gap);
+    display: grid; gap: var(--gap);
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+  }
+
+  /* Cabecalho */
+  header { display: flex; align-items: baseline; gap: 28px; padding: 0 6px; }
+  .clock { font-size: 40px; font-weight: 600; }
+  .date { color: var(--text-2); }
+  header .spacer { flex: 1; }
+  header .meta { color: var(--text-2); font-size: 18px; }
+  header .meta b { color: var(--text); font-weight: 600; }
+  .conn { font-size: 18px; color: var(--text); display: none; }
+  .conn.show { display: inline; }
+  .conn::before { content: "⚠ "; color: var(--critical); }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px 20px; min-width: 0; }
+  .card h2 { margin: 0 0 10px; font-size: 18px; font-weight: 500; color: var(--muted); letter-spacing: .02em; }
+
+  /* Stat tiles */
+  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: var(--gap); }
+  .tile { display: grid; grid-template-rows: auto auto auto 1fr; }
+  .tile .value { font-size: 46px; font-weight: 600; line-height: 1.05; }
+  .tile .value small { font-size: 24px; font-weight: 500; color: var(--text-2); margin-left: 4px; }
+  .tile .sub { color: var(--text-2); font-size: 18px; margin-top: 4px; min-height: 1.3em; }
+  .spark-wrap { position: relative; height: 84px; margin-top: 10px; }
+  .spark { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; touch-action: none; }
+  .readout {
+    position: absolute; top: -6px; transform: translate(-50%, -100%);
+    background: #262625; border: 1px solid var(--border); border-radius: 8px;
+    padding: 4px 10px; font-size: 16px; color: var(--text); white-space: nowrap; pointer-events: none;
+  }
+  .readout[hidden] { display: none; }
+
+  /* Linha do meio */
+  .middle { display: grid; grid-template-columns: 1.25fr 1fr 1fr; gap: var(--gap); min-height: 0; }
+  .col { display: grid; gap: var(--gap); min-height: 0; grid-template-rows: minmax(0, 1fr) auto; }
+
+  .cores-wrap { position: relative; height: calc(100% - 40px); min-height: 150px; }
+  .cores-head { display: flex; justify-content: space-between; align-items: baseline; }
+  .cores-head .hint { font-size: 16px; color: var(--muted); }
+
+  .rows { display: grid; gap: 10px; }
+  .row { display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 12px; }
+  .row .k { color: var(--text-2); }
+  .row .v { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .row .v small { color: var(--text-2); font-weight: 400; }
+  .status-icon { margin-right: 6px; }
+
+  .meter { margin-top: 6px; height: 12px; border-radius: 6px; background: var(--track); overflow: hidden; }
+  .meter > i { display: block; height: 100%; border-radius: 6px; background: var(--accent); width: 0; transition: width .4s ease; }
+  .meter-block { display: grid; gap: 4px; }
+  .meter-block + .meter-block { margin-top: 14px; }
+
+  .net-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .net-grid .value { font-size: 30px; font-weight: 600; }
+  .net-grid .spark-wrap { height: 60px; }
+
+  table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+  th { text-align: left; font-weight: 500; font-size: 16px; color: var(--muted); padding: 0 0 8px; border-bottom: 1px solid var(--grid); }
+  th.n, td.n { text-align: right; }
+  td { padding: 9px 0; border-bottom: 1px solid var(--grid); }
+  td.name { max-width: 0; width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-right: 12px; }
+  tr:last-child td { border-bottom: 0; }
+
+  /* Atalhos */
+  .shortcuts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .shortcuts button {
+    font: inherit; color: var(--text); background: var(--surface);
+    border: 1px solid var(--border); border-radius: 14px; min-height: 104px;
+    display: grid; place-items: center; gap: 4px; padding: 10px 6px; cursor: pointer;
+    transition: background .15s, transform .08s;
+  }
+  .shortcuts button .ic { font-size: 34px; line-height: 1; }
+  .shortcuts button .lb { font-size: 18px; color: var(--text-2); text-align: center; }
+  .shortcuts button:active { transform: scale(.97); background: #262625; }
+  .shortcuts button.ok { border-color: var(--good); }
+  .shortcuts button.err { border-color: var(--critical); }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <span class="clock" id="clock">--:--:--</span>
+    <span class="date" id="date"></span>
+    <span class="conn" id="conn">sem conexão com o servidor do painel</span>
+    <span class="spacer"></span>
+    <span class="meta">Volume <b id="vol">—</b></span>
+    <span class="meta">Carga <b id="load">—</b></span>
+    <span class="meta">Ligado há <b id="uptime">—</b></span>
+  </header>
+
+  <section class="tiles">
+    <div class="card tile" id="t-cpu">
+      <h2>Processador</h2>
+      <div class="value" data-v>—</div>
+      <div class="sub" data-s></div>
+      <div class="spark-wrap"><svg class="spark" data-spark="cpu"></svg><div class="readout" hidden></div></div>
+    </div>
+    <div class="card tile" id="t-ram">
+      <h2>Memória RAM</h2>
+      <div class="value" data-v>—</div>
+      <div class="sub" data-s></div>
+      <div class="spark-wrap"><svg class="spark" data-spark="ram"></svg><div class="readout" hidden></div></div>
+    </div>
+    <div class="card tile" id="t-gpu">
+      <h2>Placa de vídeo</h2>
+      <div class="value" data-v>—</div>
+      <div class="sub" data-s></div>
+      <div class="spark-wrap"><svg class="spark" data-spark="gpu"></svg><div class="readout" hidden></div></div>
+    </div>
+    <div class="card tile" id="t-vram">
+      <h2>Memória de vídeo (VRAM)</h2>
+      <div class="value" data-v>—</div>
+      <div class="sub" data-s></div>
+      <div class="spark-wrap"><svg class="spark" data-spark="vram"></svg><div class="readout" hidden></div></div>
+    </div>
+  </section>
+
+  <section class="middle">
+    <div class="col">
+      <div class="card">
+        <div class="cores-head"><h2>Uso por thread da CPU</h2><span class="hint" id="core-hint">toque numa barra para ver o valor</span></div>
+        <div class="cores-wrap"><svg class="spark" id="cores"></svg></div>
+      </div>
+      <div class="card">
+        <h2>Temperaturas e consumo</h2>
+        <div class="rows" id="sensors"></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="card">
+        <h2>Discos</h2>
+        <div id="disks"></div>
+        <div class="rows" style="margin-top:16px" id="diskio"></div>
+      </div>
+      <div class="card">
+        <h2>Rede</h2>
+        <div class="net-grid">
+          <div><div class="row"><span class="k">↓ Download</span></div><div class="value" id="rx">—</div>
+            <div class="spark-wrap"><svg class="spark" data-spark="rx"></svg><div class="readout" hidden></div></div></div>
+          <div><div class="row"><span class="k">↑ Upload</span></div><div class="value" id="tx">—</div>
+            <div class="spark-wrap"><svg class="spark" data-spark="tx"></svg><div class="readout" hidden></div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Processos mais pesados</h2>
+      <table>
+        <thead><tr><th>Programa</th><th class="n">CPU</th><th class="n">RAM</th></tr></thead>
+        <tbody id="procs"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="shortcuts" id="shortcuts"></section>
+</div>
+
+<script>
+const HISTORY = 90; // segundos de historico nos graficos
+const hist = { cpu: [], ram: [], gpu: [], vram: [], rx: [], tx: [] };
+const fmtN = (v, d = 0) => v == null ? "—" : v.toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
+const GiB = 1024 ** 3;
+const fmtBytes = b => {
+  if (b == null) return "—";
+  const u = ["B", "KB", "MB", "GB", "TB"]; let i = 0;
+  while (b >= 1024 && i < u.length - 1) { b /= 1024; i++; }
+  return fmtN(b, b < 10 && i > 0 ? 1 : 0) + " " + u[i];
+};
+const fmtRate = b => fmtBytes(b) + "/s";
+const fmtDur = s => {
+  const d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), m = Math.floor(s % 3600 / 60);
+  return d ? `${d}d ${h}h` : h ? `${h}h ${m}min` : `${m}min`;
+};
+// Severidade: cor so na barra/icone, texto sempre na tinta normal
+const level = (v, warn, crit) => v == null ? "ok" : v >= crit ? "crit" : v >= warn ? "warn" : "ok";
+const levelColor = { ok: "var(--accent)", warn: "var(--warning)", crit: "var(--critical)" };
+const levelIcon = l => l === "crit" ? '<span class="status-icon" style="color:var(--critical)">⛔</span>'
+                    : l === "warn" ? '<span class="status-icon" style="color:var(--warning)">⚠</span>' : "";
+const levelWord = { ok: "", warn: " (alto)", crit: " (crítico)" };
+
+function push(key, v) { const a = hist[key]; a.push(v); if (a.length > HISTORY) a.shift(); }
+
+/* Sparkline: 1 serie, linha 2px, area a 10%, ponto final r=4 com anel da cor da superficie */
+function drawSpark(svg, data, maxV) {
+  const w = svg.clientWidth, h = svg.clientHeight;
+  if (!w || !h) return;
+  svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  const pad = 6, n = HISTORY;
+  const x = i => pad + (w - 2 * pad) * (i + (n - data.length)) / (n - 1);
+  const y = v => h - pad - (h - 2 * pad) * Math.min(Math.max(v ?? 0, 0) / maxV, 1);
+  svg._geo = { x, y, n, data, pad, w };
+  if (data.length < 2) { svg.innerHTML = ""; return; }
+  const pts = data.map((v, i) => `${x(i).toFixed(1)},${y(v).toFixed(1)}`);
+  const last = data.length - 1;
+  svg.innerHTML =
+    `<line x1="${pad}" x2="${w - pad}" y1="${h - pad}" y2="${h - pad}" stroke="var(--axis)" stroke-width="1"/>` +
+    `<path d="M${pts[0]} L${pts.join(" L")} L${x(last).toFixed(1)},${h - pad} L${x(0).toFixed(1)},${h - pad}Z" fill="var(--accent-wash)"/>` +
+    `<polyline points="${pts.join(" ")}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>` +
+    `<circle cx="${x(last)}" cy="${y(data[last])}" r="4" fill="var(--accent)" stroke="var(--surface)" stroke-width="2"/>` +
+    `<line class="xh" y1="${pad}" y2="${h - pad}" stroke="var(--muted)" stroke-width="1" visibility="hidden"/>`;
+}
+
+/* Leitura no toque/hover do grafico (crosshair + valor) */
+function attachReadout(svg, fmt) {
+  const box = svg.parentElement.querySelector(".readout");
+  let hideT;
+  const show = ev => {
+    const g = svg._geo; if (!g || g.data.length < 2) return;
+    const r = svg.getBoundingClientRect();
+    const px = ev.clientX - r.left;
+    const offset = g.n - g.data.length;
+    let i = Math.round((px - g.pad) / (g.w - 2 * g.pad) * (g.n - 1)) - offset;
+    i = Math.max(0, Math.min(g.data.length - 1, i));
+    const cx = g.x(i);
+    const xh = svg.querySelector(".xh");
+    if (xh) { xh.setAttribute("x1", cx); xh.setAttribute("x2", cx); xh.setAttribute("visibility", "visible"); }
+    const ago = g.data.length - 1 - i;
+    box.textContent = `${ago ? "há " + ago + " s" : "agora"} · ${fmt(g.data[i])}`;
+    box.style.left = cx + "px"; box.hidden = false;
+    clearTimeout(hideT); hideT = setTimeout(hide, 2500);
+  };
+  const hide = () => { box.hidden = true; const xh = svg.querySelector(".xh"); if (xh) xh.setAttribute("visibility", "hidden"); };
+  svg.addEventListener("pointermove", show);
+  svg.addEventListener("pointerdown", show);
+  svg.addEventListener("pointerleave", () => { clearTimeout(hideT); hideT = setTimeout(hide, 800); });
+}
+
+/* Colunas por thread: <=24px, topo arredondado 4px, base reta, trilho no tom escuro da mesma rampa */
+let coreSel = null, coreVals = [];
+function colPath(x, yTop, bw, base) {
+  const r = Math.min(4, bw / 2, Math.max(base - yTop, 0));
+  return `M${x},${base} L${x},${yTop + r} Q${x},${yTop} ${x + r},${yTop} L${x + bw - r},${yTop} Q${x + bw},${yTop} ${x + bw},${yTop + r} L${x + bw},${base}Z`;
+}
+function drawCores(svg, per) {
+  coreVals = per;
+  const w = svg.clientWidth, h = svg.clientHeight; if (!w || !h) return;
+  svg.setAttribute("viewBox", `0 0 ${w} ${h}`);
+  const n = per.length, labelH = 24, base = h - labelH, top = 4;
+  const band = w / n, bw = Math.min(24, band * 0.62);
+  let s = "";
+  per.forEach((v, i) => {
+    const x = i * band + (band - bw) / 2;
+    const yTop = base - (base - top) * Math.min(v, 100) / 100;
+    s += `<path d="${colPath(x, top, bw, base)}" fill="var(--track)"/>`;
+    if (v > 0.5) s += `<path d="${colPath(x, yTop, bw, base)}" fill="${levelColor[level(v, 75, 95)]}"/>`;
+    if (i === coreSel) s += `<rect x="${i * band + 1}" y="0" width="${band - 2}" height="${base}" fill="none" stroke="var(--muted)" stroke-width="1" rx="4"/>`;
+    if (i % 4 === 0) s += `<text x="${i * band + band / 2}" y="${h - 4}" fill="var(--muted)" font-size="15" text-anchor="middle">${i}</text>`;
+    s += `<rect data-core="${i}" x="${i * band}" y="0" width="${band}" height="${h}" fill="transparent"/>`;
+  });
+  s += `<line x1="0" x2="${w}" y1="${base}" y2="${base}" stroke="var(--axis)" stroke-width="1"/>`;
+  svg.innerHTML = s;
+  updateCoreHint();
+}
+function updateCoreHint() {
+  const el = document.getElementById("core-hint");
+  el.textContent = coreSel == null ? "toque numa barra para ver o valor" : `thread ${coreSel}: ${fmtN(coreVals[coreSel])}%`;
+}
+document.getElementById("cores").addEventListener("pointerdown", ev => {
+  const i = ev.target.getAttribute && ev.target.getAttribute("data-core");
+  if (i == null) return;
+  coreSel = coreSel === +i ? null : +i;
+  drawCores(document.getElementById("cores"), coreVals);
+});
+
+function setTile(id, valueHtml, sub) {
+  const el = document.getElementById(id);
+  el.querySelector("[data-v]").innerHTML = valueHtml;
+  el.querySelector("[data-s]").innerHTML = sub;
+}
+
+function row(k, vHtml) { return `<div class="row"><span class="k">${k}</span><span class="v">${vHtml}</span></div>`; }
+function meterBlock(label, valueHtml, pct, lvl) {
+  return `<div class="meter-block">${row(label, valueHtml)}<div class="meter"><i style="width:${Math.min(pct ?? 0, 100)}%;background:${levelColor[lvl]}"></i></div></div>`;
+}
+
+const sparks = {};
+document.querySelectorAll("[data-spark]").forEach(svg => { sparks[svg.dataset.spark] = svg; });
+attachReadout(sparks.cpu, v => fmtN(v) + "%");
+attachReadout(sparks.ram, v => fmtN(v) + "%");
+attachReadout(sparks.gpu, v => fmtN(v) + "%");
+attachReadout(sparks.vram, v => fmtN(v) + "%");
+attachReadout(sparks.rx, fmtRate);
+attachReadout(sparks.tx, fmtRate);
+
+function render(s) {
+  const c = s.cpu, m = s.mem, g = s.gpu;
+  push("cpu", c.pct); push("ram", m.pct);
+  push("gpu", g ? g.util : null); push("vram", g ? 100 * g.mem_used / g.mem_total : null);
+  push("rx", s.net.rx); push("tx", s.net.tx);
+
+  const cl = level(c.pct, 75, 95);
+  setTile("t-cpu", `${levelIcon(cl)}${fmtN(c.pct)}<small>%</small>`,
+    `${c.threads} threads · ${fmtN((c.freq || 0) / 1000, 2)} GHz · ${fmtN(c.temp)} °C`);
+  const ml = level(m.pct, 80, 92);
+  setTile("t-ram", `${levelIcon(ml)}${fmtN(m.used / GiB, 1)}<small>de ${fmtN(m.total / GiB, 0)} GB</small>`,
+    `${fmtN(m.pct)}% em uso · swap ${fmtBytes(m.swap_used)}`);
+  if (g) {
+    setTile("t-gpu", `${fmtN(g.util)}<small>%</small>`,
+      `RTX 2060 · ${fmtN(g.clock)} MHz · ${fmtN(g.temp)} °C`);
+    const vp = 100 * g.mem_used / g.mem_total;
+    setTile("t-vram", `${levelIcon(level(vp, 85, 95))}${fmtN(g.mem_used / 1024, 1)}<small>de ${fmtN(g.mem_total / 1024, 0)} GB</small>`,
+      `${fmtN(vp)}% em uso`);
+  } else {
+    setTile("t-gpu", "—", "GPU sem leitura (nvidia-smi)"); setTile("t-vram", "—", "");
+  }
+
+  drawSpark(sparks.cpu, hist.cpu, 100); drawSpark(sparks.ram, hist.ram, 100);
+  drawSpark(sparks.gpu, hist.gpu, 100); drawSpark(sparks.vram, hist.vram, 100);
+  const netMax = Math.max(64 * 1024, ...hist.rx, ...hist.tx) * 1.15; // mesma escala nos dois
+  drawSpark(sparks.rx, hist.rx, netMax); drawSpark(sparks.tx, hist.tx, netMax);
+  document.getElementById("rx").textContent = fmtRate(s.net.rx);
+  document.getElementById("tx").textContent = fmtRate(s.net.tx);
+
+  drawCores(document.getElementById("cores"), c.per);
+
+  const tRow = (label, t, warn, crit) => {
+    const l = level(t, warn, crit);
+    return row(label, `${levelIcon(l)}${fmtN(t)} °C${levelWord[l]}`);
+  };
+  let sens = tRow("CPU (pacote)", c.temp, 80, 90) + (g ? tRow("GPU", g.temp, 78, 86) : "") + tRow("SSD NVMe", s.nvme_temp, 65, 75);
+  const CPU_TDP = 105; // Xeon E5-2650 v4
+  if (c.power != null) {
+    const cp = 100 * c.power / CPU_TDP;
+    sens += meterBlock("Consumo da CPU", `${fmtN(c.power)} W <small>de ${CPU_TDP} W (TDP)</small>`, cp, level(cp, 85, 100));
+  } else {
+    sens += row("Consumo da CPU", `<small>sem acesso ao sensor</small>`);
+  }
+  if (g) {
+    const pp = 100 * g.power / g.power_limit;
+    sens += meterBlock("Consumo da GPU", `${fmtN(g.power)} W <small>de ${fmtN(g.power_limit)} W</small>`, pp, level(pp, 85, 97));
+    if (c.power != null) sens += row("Total CPU + GPU", `${fmtN(c.power + g.power)} W`);
+    sens += row("Ventoinha da GPU", `${fmtN(g.fan)}%`);
+    sens += row("Encoder (stream)", `${fmtN(g.enc)}%`);
+  }
+  document.getElementById("sensors").innerHTML = sens;
+
+  document.getElementById("disks").innerHTML = s.disks.map(d => d.pct == null
+    ? row(d.label, "não montado")
+    : meterBlock(d.label, `${fmtBytes(d.used)} <small>de ${fmtBytes(d.total)}</small>`, d.pct, level(d.pct, 85, 95))
+  ).join("");
+  document.getElementById("diskio").innerHTML = row("Leitura", fmtRate(s.diskio.read)) + row("Escrita", fmtRate(s.diskio.write));
+
+  document.getElementById("procs").innerHTML = s.procs.map(p =>
+    `<tr><td class="name">${p.name.replace(/[<>&]/g, "")}</td><td class="n">${fmtN(p.cpu, 1)}%</td><td class="n">${fmtBytes(p.mem)}</td></tr>`
+  ).join("");
+
+  document.getElementById("load").textContent = s.load.map(v => fmtN(v, 1)).join(" · ");
+  document.getElementById("uptime").textContent = fmtDur(s.uptime);
+  const v = s.volume;
+  document.getElementById("vol").textContent = v ? (v.muted ? "mudo" : v.pct + "%") : "—";
+}
+
+async function tick() {
+  try {
+    const r = await fetch("/api/stats", { cache: "no-store" });
+    const s = await r.json();
+    if (s.cpu) render(s);
+    document.getElementById("conn").classList.remove("show");
+  } catch (e) {
+    document.getElementById("conn").classList.add("show");
+  }
+}
+
+function clock() {
+  const d = new Date();
+  document.getElementById("clock").textContent = d.toLocaleTimeString("pt-BR");
+  document.getElementById("date").textContent = d.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+}
+
+let shortcutsSig = null;
+async function loadShortcuts() {
+  const box = document.getElementById("shortcuts");
+  try {
+    const items = await (await fetch("/api/shortcuts", { cache: "no-store" })).json();
+    const sig = JSON.stringify(items);
+    if (sig === shortcutsSig) return; // so redesenha se o atalhos.json mudou
+    shortcutsSig = sig;
+    box.innerHTML = "";
+    for (const it of items) {
+      const b = document.createElement("button");
+      b.innerHTML = `<span class="ic"></span><span class="lb"></span>`;
+      b.querySelector(".ic").textContent = it.icon || "▶";
+      b.querySelector(".lb").textContent = it.label;
+      b.addEventListener("click", async () => {
+        let ok = false;
+        try { ok = (await fetch("/api/run/" + encodeURIComponent(it.id), { method: "POST", headers: { "X-Dash": "1" } })).ok; } catch (e) {}
+        b.classList.add(ok ? "ok" : "err");
+        setTimeout(() => b.classList.remove("ok", "err"), 900);
+        if (ok) setTimeout(tick, 300);
+      });
+      box.appendChild(b);
+    }
+  } catch (e) { if (shortcutsSig === null) box.textContent = "Não consegui carregar os atalhos."; }
+}
+
+clock(); setInterval(clock, 1000);
+tick(); setInterval(tick, 1000);
+loadShortcuts(); setInterval(loadShortcuts, 20000);
+window.addEventListener("resize", tick);
+</script>
+</body>
+</html>

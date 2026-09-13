@@ -1,0 +1,80 @@
+[
+  {
+    "id": "mute",
+    "label": "Mudo",
+    "icon": "🔇",
+    "cmd": [
+      "pactl",
+      "set-sink-mute",
+      "@DEFAULT_SINK@",
+      "toggle"
+    ]
+  },
+  {
+    "id": "print",
+    "label": "Print da tela",
+    "icon": "📸",
+    "cmd": [
+      "gnome-screenshot"
+    ]
+  },
+  {
+    "id": "terminal",
+    "label": "Terminal",
+    "icon": "⌨️",
+    "cmd": [
+      "gnome-terminal"
+    ]
+  },
+  {
+    "id": "ssd",
+    "label": "Arquivos do SSD",
+    "icon": "📁",
+    "cmd": [
+      "nemo",
+      "/mnt/SSD"
+    ]
+  },
+  {
+    "id": "steam",
+    "label": "Steam",
+    "icon": "🎮",
+    "cmd": [
+      "steam"
+    ]
+  },
+  {
+    "id": "discord",
+    "label": "Discord",
+    "icon": "💬",
+    "cmd": [
+      "discord"
+    ]
+  },
+  {
+    "id": "monitor",
+    "label": "Monitor do sistema",
+    "icon": "📊",
+    "cmd": [
+      "gnome-system-monitor"
+    ]
+  },
+  {
+    "id": "sunshine",
+    "label": "Painel Sunshine",
+    "icon": "☀️",
+    "cmd": [
+      "xdg-open",
+      "https://localhost:47990"
+    ]
+  },
+  {
+    "id": "lock",
+    "label": "Bloquear tela",
+    "icon": "🔒",
+    "cmd": [
+      "cinnamon-screensaver-command",
+      "--lock"
+    ]
+  }
+]

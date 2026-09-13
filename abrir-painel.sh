@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# Abre o Painel do PC em tela cheia no monitor virtual DP-0.
+set -u
+URL="http://127.0.0.1:8787"
+OUTPUT="DP-0"
+PROFILE="$HOME/.config/pc-dashboard/chrome"
+
+systemctl --user start pc-dashboard.service
+for _ in $(seq 30); do curl -fs -o /dev/null "$URL/api/stats" && break; sleep 1; done
+
+GEO=$(xrandr --query | awk -v o="$OUTPUT" '$1==o && $2=="connected" {for(i=3;i<=NF;i++) if ($i ~ /^[0-9]+x[0-9]+\+[0-9]+\+[0-9]+$/) {print $i; exit}}')
+if [[ -z "$GEO" ]]; then
+  notify-send "Painel do PC" "Monitor $OUTPUT não encontrado." 2>/dev/null
+  exit 1
+fi
+W=${GEO%%x*}; REST=${GEO#*x}; H=${REST%%+*}; REST=${REST#*+}; X=${REST%%+*}; Y=${REST#*+}
+
+# Ja aberto? so reposiciona.
+if ! wmctrl -lx | grep -q 'pc-dashboard'; then
+  google-chrome --user-data-dir="$PROFILE" --class=pc-dashboard --app="$URL" \
+    --window-position="$X,$Y" --window-size="$W,$H" \
+    --no-first-run --no-default-browser-check --password-store=basic \
+    --disable-features=Translate --noerrdialogs --disable-session-crashed-bubble \
+    >/dev/null 2>&1 &
+  for _ in $(seq 20); do wmctrl -lx | grep -q 'pc-dashboard' && break; sleep 0.5; done
+fi
+WIN=$(wmctrl -lx | awk '$3 ~ /pc-dashboard/ {print $1; exit}')
+[[ -n "$WIN" ]] || exit 1
+wmctrl -i -r "$WIN" -b remove,fullscreen,maximized_vert,maximized_horz
+wmctrl -i -r "$WIN" -e "0,$X,$Y,$W,$H"
+sleep 0.5
+wmctrl -i -r "$WIN" -b add,fullscreen
