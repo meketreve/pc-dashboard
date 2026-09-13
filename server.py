@@ -319,7 +319,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, json.dumps({"index": (BASE / "index.html").stat().st_mtime}))
         if self.path == "/api/redes":
             return self._send(200, json.dumps(REDES.data, ensure_ascii=False))
-        if self.path == "/tiktok/login" or self.path.startswith("/tiktok/callback/"):
+        if self.path == "/tiktok/login" or urllib.parse.urlsplit(self.path).path.rstrip("/") == "/tiktok/callback":
             return self._tiktok_auth()
         if self.path == "/api/audio":
             return self._stream_audio()

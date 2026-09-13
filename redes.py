@@ -233,6 +233,8 @@ class TikTok:
 
     def __init__(self, cfg):
         self.cfg = cfg
+        # Tem que ser identico ao cadastrado no Login Kit (Desktop) do app/sandbox
+        self.redirect = cfg.get("redirect_uri") or self.REDIRECT
 
     def configured(self):
         return bool(self.cfg.get("client_key") and self.cfg.get("client_secret"))
@@ -243,7 +245,7 @@ class TikTok:
         TikTok._pending = {state: verifier}
         return "https://www.tiktok.com/v2/auth/authorize/?" + _q(
             client_key=self.cfg["client_key"], response_type="code", scope=self.SCOPES,
-            redirect_uri=self.REDIRECT, state=state, code_challenge_method="S256",
+            redirect_uri=self.redirect, state=state, code_challenge_method="S256",
             code_challenge=hashlib.sha256(verifier.encode()).hexdigest())  # TikTok usa hex, nao base64url
 
     def _token_call(self, **params):
@@ -263,7 +265,7 @@ class TikTok:
         verifier = TikTok._pending.pop(state, None)
         if not verifier:
             raise ApiError("login expirado ou state inválido; abra /tiktok/login de novo")
-        self._token_call(code=code, grant_type="authorization_code", redirect_uri=self.REDIRECT, code_verifier=verifier)
+        self._token_call(code=code, grant_type="authorization_code", redirect_uri=self.redirect, code_verifier=verifier)
 
     def _access(self):
         tok = _tokens().get("tiktok")
