@@ -25,14 +25,32 @@
     font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html, body { margin: 0; height: 100%; background: var(--page); color: var(--text); overflow: hidden; }
   body { font-size: 20px; user-select: none; -webkit-user-select: none; }
 
   .app {
     height: 100vh; padding: var(--gap);
     display: grid; gap: var(--gap);
-    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr);
   }
+  .page { display: grid; gap: var(--gap); min-height: 0; }
+  .page.enter { animation: page-in .25s ease-out; }
+  @keyframes page-in { from { opacity: 0; transform: translateY(8px); } }
+  #page-dash { grid-template-rows: auto minmax(0, 1fr) auto; }
+  #page-atalhos { grid-template-rows: auto minmax(0, 1fr); align-content: start; }
+  .page-title { margin: 4px 6px 0; font-size: 18px; font-weight: 500; color: var(--muted); letter-spacing: .02em; }
+
+  /* Botao discreto de trocar pagina */
+  #pager {
+    position: fixed; right: 4px; bottom: 4px; z-index: 20;
+    width: 44px; height: 44px; border-radius: 50%; padding: 0;
+    display: grid; place-items: center; cursor: pointer;
+    background: transparent; border: 1px solid transparent; color: var(--muted);
+    opacity: .35; transition: opacity .2s, border-color .2s;
+  }
+  #pager:active { opacity: 1; border-color: var(--border); }
+  #pager svg { width: 20px; height: 20px; }
 
   /* Cabecalho */
   header { display: flex; align-items: baseline; gap: 28px; padding: 0 6px; }
@@ -95,18 +113,48 @@
   tr:last-child td { border-bottom: 0; }
 
   /* Atalhos */
-  .shortcuts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .shortcuts { display: grid; grid-template-columns: repeat(5, 1fr); gap: var(--gap); align-content: start; }
   .shortcuts button {
     font: inherit; color: var(--text); background: var(--surface);
-    border: 1px solid var(--border); border-radius: 14px; min-height: 104px;
-    display: grid; place-items: center; gap: 4px; padding: 10px 6px; cursor: pointer;
+    border: 1px solid var(--border); border-radius: 14px; min-height: 200px;
+    display: grid; place-items: center; align-content: center; gap: 14px; padding: 16px 10px; cursor: pointer;
     transition: background .15s, transform .08s;
   }
-  .shortcuts button .ic { font-size: 34px; line-height: 1; }
-  .shortcuts button .lb { font-size: 18px; color: var(--text-2); text-align: center; }
+  .shortcuts button .ic { font-size: 60px; line-height: 1; }
+  .shortcuts button .lb { font-size: 22px; color: var(--text-2); text-align: center; }
   .shortcuts button:active { transform: scale(.97); background: #262625; }
   .shortcuts button.ok { border-color: var(--good); }
   .shortcuts button.err { border-color: var(--critical); }
+
+  /* Tocando agora + visualizador */
+  .player { display: grid; grid-template-columns: 460px minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 28px; height: 136px; padding: 14px 20px; }
+  .np { display: grid; grid-template-columns: 104px minmax(0, 1fr); gap: 16px; align-items: center; min-width: 0; }
+  .art { width: 104px; height: 104px; border-radius: 10px; background: #262625; display: grid; place-items: center; overflow: hidden; color: var(--muted); font-size: 40px; }
+  .art img { width: 100%; height: 100%; object-fit: cover; }
+  .np-text { min-width: 0; }
+  .np-src { font-size: 16px; color: var(--muted); }
+  .np-title { font-size: 24px; font-weight: 600; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .np-artist { font-size: 18px; color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 1.3em; }
+  .np-prog { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; margin-top: 8px; font-size: 15px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .np-prog .meter { height: 6px; margin: 0; }
+  .np-prog .meter > i { transition: width 1s linear; }
+  .viz-wrap { position: relative; min-width: 0; }
+  #viz { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+
+  /* Mascote */
+  #mascot { position: fixed; left: 0; top: 0; z-index: 10; cursor: pointer; will-change: transform; touch-action: none; }
+  #mascot canvas {
+    display: block; width: 100%; height: 100%; image-rendering: pixelated;
+    /* contorno de pixel claro: sem ele as partes pretas somem no fundo escuro */
+    filter: drop-shadow(2px 0 0 rgba(195,194,183,.55)) drop-shadow(-2px 0 0 rgba(195,194,183,.55))
+            drop-shadow(0 2px 0 rgba(195,194,183,.55)) drop-shadow(0 -2px 0 rgba(195,194,183,.55));
+  }
+  .bubble {
+    position: fixed; z-index: 11; pointer-events: none; transform: translateX(-50%);
+    font-size: 24px; font-weight: 700; color: var(--text-2); animation: rise 1.5s ease-out forwards;
+  }
+  .bubble.love { color: #e86a92; }
+  @keyframes rise { from { opacity: 0; translate: 0 6px; } 15% { opacity: 1; } to { opacity: 0; translate: 0 -40px; } }
 </style>
 </head>
 <body>
@@ -121,6 +169,7 @@
     <span class="meta">Ligado há <b id="uptime">—</b></span>
   </header>
 
+  <main class="page" id="page-dash">
   <section class="tiles">
     <div class="card tile" id="t-cpu">
       <h2>Processador</h2>
@@ -184,8 +233,28 @@
     </div>
   </section>
 
-  <section class="shortcuts" id="shortcuts"></section>
+  <section class="card player">
+    <div class="np">
+      <div class="art"><img id="np-art" alt="" hidden><span id="np-noart">♪</span></div>
+      <div class="np-text">
+        <div class="np-src" id="np-src">Tocando agora</div>
+        <div class="np-title" id="np-title">Nada tocando</div>
+        <div class="np-artist" id="np-artist"></div>
+        <div class="np-prog" id="np-prog" hidden><div class="meter"><i id="np-bar"></i></div><span id="np-time"></span></div>
+      </div>
+    </div>
+    <div class="viz-wrap"><canvas id="viz"></canvas></div>
+  </section>
+  </main>
+
+  <main class="page" id="page-atalhos" hidden>
+    <h2 class="page-title">Atalhos</h2>
+    <section class="shortcuts" id="shortcuts"></section>
+  </main>
 </div>
+
+<button id="pager" aria-label="Trocar de página"></button>
+<div id="mascot" aria-hidden="true"><canvas width="16" height="9"></canvas></div>
 
 <script>
 const HISTORY = 90; // segundos de historico nos graficos
@@ -380,6 +449,47 @@ function render(s) {
   document.getElementById("uptime").textContent = fmtDur(s.uptime);
   const v = s.volume;
   document.getElementById("vol").textContent = v ? (v.muted ? "mudo" : v.pct + "%") : "—";
+
+  pcHot = c.pct > 90 || c.temp > 85 || (g != null && g.temp > 84);
+  renderMedia(s.media);
+}
+
+/* Tocando agora (MPRIS via servidor). Posicao vem a cada 2 s; entre leituras, interpola. */
+let media = null, mediaAt = 0;
+const fmtMin = s => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
+function renderMedia(m) {
+  if (!m || !media || m.position !== media.position || m.title !== media.title || m.status !== media.status) {
+    media = m; mediaAt = performance.now();
+  }
+  const $ = id => document.getElementById(id);
+  const img = $("np-art");
+  if (m) {
+    const player = m.player.charAt(0).toUpperCase() + m.player.slice(1);
+    $("np-src").textContent = `${player} · ${m.status === "Playing" ? "tocando" : "pausado"}`;
+    $("np-title").textContent = m.title || "Sem título";
+    $("np-artist").textContent = [m.artist, m.album].filter(Boolean).join(" · ");
+  } else {
+    $("np-src").textContent = "Tocando agora";
+    $("np-title").textContent = audio.playing ? "Som do PC" : "Nada tocando";
+    $("np-artist").textContent = audio.playing ? "sem informação da música" : "";
+  }
+  const art = m && /^https?:/.test(m.art) ? m.art : "";
+  if (img.dataset.src !== art) {
+    img.dataset.src = art; img.hidden = true; $("np-noart").hidden = false;
+    if (art) img.src = art;
+  }
+  mediaProgress();
+}
+document.getElementById("np-art").addEventListener("load", e => {
+  e.target.hidden = false; document.getElementById("np-noart").hidden = true;
+});
+function mediaProgress() {
+  const prog = document.getElementById("np-prog");
+  prog.hidden = !(media && media.length > 0);
+  if (prog.hidden) return;
+  const pos = Math.min(media.length, media.position + (media.status === "Playing" ? (performance.now() - mediaAt) / 1000 : 0));
+  document.getElementById("np-bar").style.width = (100 * pos / media.length) + "%";
+  document.getElementById("np-time").textContent = `${fmtMin(pos)} / ${fmtMin(media.length)}`;
 }
 
 async function tick() {
@@ -397,6 +507,7 @@ function clock() {
   const d = new Date();
   document.getElementById("clock").textContent = d.toLocaleTimeString("pt-BR");
   document.getElementById("date").textContent = d.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+  mediaProgress();
 }
 
 let shortcutsSig = null;
@@ -425,10 +536,305 @@ async function loadShortcuts() {
   } catch (e) { if (shortcutsSig === null) box.textContent = "Não consegui carregar os atalhos."; }
 }
 
+/* ---------- Paginas: painel e atalhos ---------- */
+const PAGES = ["page-dash", "page-atalhos"];
+const PAGER_ICONS = [
+  // no painel: icone de grade (vai pros atalhos)
+  '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="2" width="6.5" height="6.5" rx="1.5"/><rect x="11.5" y="2" width="6.5" height="6.5" rx="1.5"/><rect x="2" y="11.5" width="6.5" height="6.5" rx="1.5"/><rect x="11.5" y="11.5" width="6.5" height="6.5" rx="1.5"/></svg>',
+  // nos atalhos: icone de grafico (volta pro painel)
+  '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M3 17h14M5 14V9M10 14V4M15 14v-6"/></svg>',
+];
+const BACK_AFTER = 90000; // atalhos voltam sozinhos pro painel depois de 90 s sem toque
+let page = 0, backTimer = null;
+function showPage(i) {
+  page = i;
+  PAGES.forEach((id, j) => {
+    const el = document.getElementById(id);
+    el.hidden = j !== i;
+    if (j === i) { el.classList.remove("enter"); void el.offsetWidth; el.classList.add("enter"); }
+  });
+  document.getElementById("pager").innerHTML = PAGER_ICONS[i];
+  armBack();
+  tick();
+}
+function armBack() {
+  clearTimeout(backTimer);
+  if (page !== 0) backTimer = setTimeout(() => showPage(0), BACK_AFTER);
+}
+document.getElementById("pager").addEventListener("click", () => showPage((page + 1) % PAGES.length));
+document.getElementById("page-atalhos").addEventListener("pointerdown", armBack);
+
+/* ---------- Audio: PCM do servidor -> FFT -> barras ---------- */
+const AUDIO_RATE = 24000, FFT_N = 2048, BARS = 64;
+const ring = new Float32Array(FFT_N);
+let ringW = 0, audioAlive = 0;
+const audio = { playing: false, level: 0, beat: 0, loudSince: 0, quietSince: 0 };
+
+async function audioStream() {
+  for (;;) {
+    try {
+      const reader = (await fetch("/api/audio", { cache: "no-store" })).body.getReader();
+      let carry = -1;
+      for (;;) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        let b = value;
+        if (carry >= 0) { const t = new Uint8Array(b.length + 1); t[0] = carry; t.set(b, 1); b = t; carry = -1; }
+        if (b.length & 1) { carry = b[b.length - 1]; b = b.subarray(0, b.length - 1); }
+        const dv = new DataView(b.buffer, b.byteOffset, b.length);
+        for (let i = 0; i < b.length; i += 2) { ring[ringW] = dv.getInt16(i, true) / 32768; ringW = (ringW + 1) % FFT_N; }
+        audioAlive = performance.now();
+      }
+    } catch (e) {}
+    await new Promise(r => setTimeout(r, 3000));
+  }
+}
+
+// FFT radix-2 iterativa, janela de Hann
+const re = new Float32Array(FFT_N), im = new Float32Array(FFT_N), mags = new Float32Array(FFT_N / 2);
+const hann = Float32Array.from({ length: FFT_N }, (_, i) => 0.5 - 0.5 * Math.cos(2 * Math.PI * i / (FFT_N - 1)));
+const rev = new Uint32Array(FFT_N);
+for (let i = 0, bits = Math.log2(FFT_N); i < FFT_N; i++) { let r = 0; for (let b = 0; b < bits; b++) r = (r << 1) | ((i >> b) & 1); rev[i] = r; }
+const cosT = new Float32Array(FFT_N / 2), sinT = new Float32Array(FFT_N / 2);
+for (let i = 0; i < FFT_N / 2; i++) { cosT[i] = Math.cos(2 * Math.PI * i / FFT_N); sinT[i] = -Math.sin(2 * Math.PI * i / FFT_N); }
+function fft() {
+  let sum2 = 0;
+  for (let i = 0; i < FFT_N; i++) { const s = ring[(ringW + i) % FFT_N]; sum2 += s * s; re[rev[i]] = s * hann[i]; im[rev[i]] = 0; }
+  for (let size = 2; size <= FFT_N; size <<= 1) {
+    const half = size >> 1, step = FFT_N / size;
+    for (let st = 0; st < FFT_N; st += size) for (let k = 0; k < half; k++) {
+      const c = cosT[k * step], s = sinT[k * step], a = st + k, b = a + half;
+      const tr = re[b] * c - im[b] * s, ti = re[b] * s + im[b] * c;
+      re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
+    }
+  }
+  for (let k = 0; k < FFT_N / 2; k++) mags[k] = Math.hypot(re[k], im[k]) * 4 / FFT_N; // amplitude (Hann)
+  return Math.sqrt(sum2 / FFT_N);
+}
+
+// 64 faixas em escala log de 40 Hz a 11 kHz; +2 dB/oitava pra musica nao "cair" nos agudos
+const BIN_HZ = AUDIO_RATE / FFT_N;
+const bands = Array.from({ length: BARS }, (_, i) => {
+  const f0 = 40 * Math.pow(11000 / 40, i / BARS), f1 = 40 * Math.pow(11000 / 40, (i + 1) / BARS), fc = Math.sqrt(f0 * f1);
+  return { k0: Math.floor(f0 / BIN_HZ), k1: Math.max(Math.ceil(f1 / BIN_HZ), Math.floor(f0 / BIN_HZ) + 1),
+           narrow: f1 - f0 < 1.5 * BIN_HZ, kc: fc / BIN_HZ, tilt: 2 * Math.log2(fc / 1000), fc };
+});
+const BASS = bands.filter(b => b.fc < 160).length;
+const barV = new Float32Array(BARS), barPeak = new Float32Array(BARS);
+let refDb = -30, bassAvg = 0;
+
+function analyse(now, dt) {
+  const alive = now - audioAlive < 1000;
+  const rmsDb = alive ? 20 * Math.log10(fft() + 1e-9) : -120;
+  const gate = rmsDb > -62;
+  const db = new Float32Array(BARS);
+  let frameMax = -120;
+  bands.forEach((b, i) => {
+    let m;
+    if (b.narrow) { const k = Math.floor(b.kc), f = b.kc - k; m = mags[k] * (1 - f) + mags[k + 1] * f; }
+    else { m = 0; for (let k = b.k0; k < b.k1; k++) m = Math.max(m, mags[k]); }
+    db[i] = 20 * Math.log10(m + 1e-9) + b.tilt;
+    frameMax = Math.max(frameMax, db[i]);
+  });
+  // Ganho automatico: a barra mais alta fica perto do topo em qualquer volume
+  if (gate) refDb += frameMax > refDb ? (frameMax - refDb) * Math.min(1, dt * 8) : -dt * 4;
+  refDb = Math.min(0, Math.max(-45, refDb));
+  const RANGE = 40;
+  let sum = 0, bass = 0;
+  for (let i = 0; i < BARS; i++) {
+    // curva 1.5 abre o contraste: so os picos encostam no topo
+    const target = gate ? Math.pow(Math.min(1, Math.max(0, (db[i] - refDb + RANGE) / RANGE)), 1.5) : 0;
+    barV[i] = target > barV[i] ? barV[i] + (target - barV[i]) * Math.min(1, dt * 25) : Math.max(target, barV[i] - dt * 1.8);
+    barPeak[i] = barV[i] >= barPeak[i] ? barV[i] : Math.max(barV[i], barPeak[i] - dt * 0.45);
+    sum += barV[i]; if (i < BASS) bass += barV[i];
+  }
+  audio.level = sum / BARS;
+  bass /= BASS;
+
+  const loud = gate && rmsDb > -48;
+  if (loud) { audio.quietSince = 0; audio.loudSince ||= now; } else { audio.loudSince = 0; audio.quietSince ||= now; }
+  if (!audio.playing && audio.loudSince && now - audio.loudSince > 600) audio.playing = true;
+  if (audio.playing && audio.quietSince && now - audio.quietSince > 1500) audio.playing = false;
+  bassAvg += (bass - bassAvg) * Math.min(1, dt * 2.5);
+  if (audio.playing && bass > 0.35 && bass > bassAvg * 1.3 && now - audio.beat > 280) audio.beat = now;
+}
+
+const viz = document.getElementById("viz");
+const css = getComputedStyle(document.documentElement);
+const C_ACCENT = css.getPropertyValue("--accent").trim(), C_MUTED = css.getPropertyValue("--muted").trim(), C_AXIS = css.getPropertyValue("--axis").trim();
+function drawViz() {
+  const w = viz.clientWidth, h = viz.clientHeight;
+  if (!w || !h) return;
+  const dpr = window.devicePixelRatio || 1;
+  if (viz.width !== Math.round(w * dpr) || viz.height !== Math.round(h * dpr)) { viz.width = Math.round(w * dpr); viz.height = Math.round(h * dpr); }
+  const ctx = viz.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, w, h);
+  const base = h - 1, top = 6, band = w / BARS, bw = Math.min(16, band - 2);
+  ctx.fillStyle = C_ACCENT;
+  for (let i = 0; i < BARS; i++) {
+    const x = i * band + (band - bw) / 2, bh = Math.max(2, (base - top) * barV[i]);
+    ctx.beginPath(); ctx.roundRect(x, base - bh, bw, bh, [Math.min(4, bw / 2, bh), Math.min(4, bw / 2, bh), 0, 0]); ctx.fill();
+  }
+  ctx.fillStyle = C_MUTED;
+  for (let i = 0; i < BARS; i++) if (barPeak[i] > 0.03) ctx.fillRect(i * band + (band - bw) / 2, base - (base - top) * barPeak[i] - 4, bw, 2);
+  ctx.fillStyle = C_AXIS; ctx.fillRect(0, base, w, 1);
+}
+
+/* ---------- Mascote: texugo pixelado que passeia por cima dos cards ---------- */
+const SCALE = 5, SPR_W = 16, SPR_H = 9, MW = SPR_W * SCALE, MH = SPR_H * SCALE;
+const PAL = { g: "#8c8c96", G: "#b9b9c2", d: "#5f5f68", k: "#2b2b33", w: "#f4f4f4", o: "#ffffff" };
+const BODY = [
+  "..........k.....",
+  "...GGGGGGGkwww..",
+  ".gggggggggkwwww.",
+  "ggggggggggkokkwk",
+  ".gggggggggwwwwkk",
+  ".dgggggggdwwwk..",
+  "..dddddddd......",
+];
+const LEGS = {
+  stand: ["..kk....kk......", "..kk....kk......"],
+  walk1: ["..kk....kk......", ".kk......kk....."],
+  walk2: ["..kk....kk......", "...kk..kk......."],
+  jump:  [".kk......kk.....", "................"],
+};
+const mascotEl = document.getElementById("mascot"), mascotCv = mascotEl.querySelector("canvas"), mctx = mascotCv.getContext("2d");
+mascotEl.style.width = MW + "px"; mascotEl.style.height = MH + "px";
+let spriteKey = "", pcHot = false;
+function drawSprite(frame, eyesClosed) {
+  const key = frame + eyesClosed;
+  if (key === spriteKey) return;
+  spriteKey = key;
+  let rows = frame === "sit" || frame === "sleep" ? ["................", ...BODY, "..kkk...kkk....."] : [...BODY, ...LEGS[frame]];
+  if (eyesClosed || frame === "sleep") rows = rows.map(r => r.replace("o", "k"));
+  mctx.clearRect(0, 0, SPR_W, SPR_H);
+  rows.forEach((r, y) => [...r].forEach((c, x) => { if (PAL[c]) { mctx.fillStyle = PAL[c]; mctx.fillRect(x, y, 1, 1); } }));
+}
+
+const rnd = (a, b) => a + Math.random() * (b - a);
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const M = { x: 300, y: -MH, el: null, dir: 1, state: "fall", until: 0, jump: null, lastBeat: 0, nextFx: 0, blinkUntil: 0, nextBlink: 0, nextSweat: 0 };
+
+function platforms() {
+  const sel = page === 0 ? "#page-dash .card" : "#page-atalhos .shortcuts button";
+  return [...document.querySelectorAll(sel)].filter(el => el.getBoundingClientRect().width > MW + 24);
+}
+function spot(el) {
+  const r = el.getBoundingClientRect();
+  return { top: r.top + 1, min: r.left + 10, max: r.right - 10 - MW };
+}
+function setState(s, now, secs = 0) { M.state = s; M.until = now + secs * 1000; }
+function jumpTo(el, now, tx) {
+  const S = spot(el), x1 = clamp(tx ?? rnd(S.min, S.max), S.min, S.max);
+  if (Math.abs(x1 - M.x) > 1) M.dir = x1 > M.x ? 1 : -1;
+  M.jump = { x0: M.x, y0: M.y, x1, el, t0: now,
+             dur: clamp(Math.hypot(x1 - M.x, S.top - M.y) / 650, 0.45, 1.1) * 1000,
+             h: Math.abs(M.y - S.top) / 2 + 45 };
+  M.el = null;
+  setState("jump", now);
+}
+function randomJump(now) { const ps = platforms().filter(p => p !== M.el); if (ps.length) jumpTo(pick(ps), now); }
+function chooseNext(now) {
+  if (audio.playing && Math.random() < 0.7) return setState("dance", now, rnd(8, 18));
+  const r = Math.random();
+  if (r < 0.45) { M.dir = Math.random() < 0.5 ? 1 : -1; setState("walk", now, rnd(3, 8)); }
+  else if (r < 0.65) randomJump(now);
+  else if (r < 0.85) setState("idle", now, rnd(2, 5));
+  else setState("sit", now, rnd(6, 14));
+}
+function bubble(txt, cls = "") {
+  const b = document.createElement("span");
+  b.className = "bubble " + cls; b.textContent = txt;
+  b.style.left = (M.x + (M.dir > 0 ? MW * 0.8 : MW * 0.2)) + "px";
+  b.style.top = (M.y - MH - 30) + "px";
+  document.body.appendChild(b);
+  b.addEventListener("animationend", () => b.remove());
+}
+mascotEl.addEventListener("pointerdown", () => {
+  const now = performance.now();
+  bubble("♥", "love");
+  if (M.state !== "jump" && M.el) { const el = M.el; jumpTo(el, now, M.x); }
+});
+
+function mascotStep(now, dt) {
+  if (M.state !== "jump") {
+    const S = M.el && M.el.isConnected && spot(M.el);
+    if (!S || S.max < S.min) {           // sem chao (inicio, troca de pagina, resize)
+      const ps = platforms(); if (ps.length) jumpTo(pick(ps), now);
+    } else { M.y = S.top; M.x = clamp(M.x, S.min, S.max); }
+  }
+  const beatBob = Math.max(0, 1 - (now - audio.beat) / 220);
+  let frame = "stand", bob = 0;
+  switch (M.state) {
+    case "jump": {
+      const J = M.jump, p = Math.min(1, (now - J.t0) / J.dur), y1 = spot(J.el).top;
+      M.x = J.x0 + (J.x1 - J.x0) * p;
+      M.y = J.y0 + (y1 - J.y0) * p - J.h * 4 * p * (1 - p);
+      frame = "jump";
+      if (p >= 1) { M.el = J.el; M.y = y1; M.jump = null; setState("idle", now, rnd(0.4, 1.2)); }
+      break;
+    }
+    case "walk": {
+      const S = spot(M.el);
+      M.x += M.dir * 55 * dt;
+      if (M.x <= S.min || M.x >= S.max) {
+        M.x = clamp(M.x, S.min, S.max);
+        if (Math.random() < 0.5) M.dir *= -1; else randomJump(now);
+      }
+      frame = Math.floor(now / 140) % 2 ? "walk1" : "walk2";
+      if (audio.playing) bob = beatBob * 4;
+      if (M.state === "walk" && now > M.until) chooseNext(now);
+      break;
+    }
+    case "idle":
+      if (now > M.until || (audio.playing && Math.random() < dt * 0.5)) chooseNext(now);
+      break;
+    case "sit":
+      frame = "sit";
+      if (audio.playing) chooseNext(now);
+      else if (now > M.until) Math.random() < 0.5 ? setState("sleep", now, rnd(30, 90)) : chooseNext(now);
+      break;
+    case "sleep":
+      frame = "sleep";
+      if (now > M.nextFx) { bubble("z"); M.nextFx = now + 1600; }
+      if (audio.playing) { bubble("!"); setState("dance", now, rnd(8, 18)); }
+      else if (now > M.until) setState("idle", now, 1);
+      break;
+    case "dance":
+      if (audio.beat !== M.lastBeat) {
+        M.lastBeat = audio.beat; M.dir *= -1;
+        if (Math.random() < 0.3) bubble("♪");
+      }
+      if (now - audio.beat < 1500) { frame = now - audio.beat < 140 ? "jump" : "stand"; bob = beatBob * 10; }
+      else { bob = (0.5 + 0.5 * Math.sin(now / 200)) * 10 * audio.level; if (Math.floor(now / 1200) % 2) M.dir = 1; else M.dir = -1; }
+      if (!audio.playing || now > M.until) chooseNext(now);
+      break;
+  }
+  if (now > M.nextBlink) { M.blinkUntil = now + 140; M.nextBlink = now + rnd(2500, 6000); }
+  if (pcHot && M.state !== "sleep" && now > M.nextSweat) { bubble("💦"); M.nextSweat = now + 2500; }
+  drawSprite(frame, now < M.blinkUntil);
+  mascotCv.style.transform = M.dir < 0 ? "scaleX(-1)" : "";
+  mascotEl.style.transform = `translate3d(${M.x.toFixed(1)}px, ${(M.y - MH - bob).toFixed(1)}px, 0)`;
+}
+
+let lastFrame = performance.now();
+function frame(now) {
+  const dt = Math.min(0.05, (now - lastFrame) / 1000); lastFrame = now;
+  analyse(now, dt);
+  if (page === 0) drawViz();
+  mascotStep(now, dt);
+  requestAnimationFrame(frame);
+}
+
+showPage(0);
 clock(); setInterval(clock, 1000);
 tick(); setInterval(tick, 1000);
 loadShortcuts(); setInterval(loadShortcuts, 20000);
 window.addEventListener("resize", tick);
+audioStream();
+requestAnimationFrame(frame);
 </script>
 </body>
 </html>

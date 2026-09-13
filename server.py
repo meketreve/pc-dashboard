@@ -2,10 +2,12 @@
 """Painel do PC: servidor local (127.0.0.1) com metricas do sistema e atalhos.
 
 Metricas: /api/stats (JSON, atualizado 1x/s por uma thread de coleta).
+Audio:    /api/audio, PCM s16le mono 24 kHz do monitor da saida padrao (o navegador faz a FFT).
 Atalhos:  POST /api/run/<id>, somente ids definidos em ~/.config/pc-dashboard/atalhos.json.
 """
 import json
 import os
+import select
 import shutil
 import subprocess
 import threading
@@ -21,6 +23,8 @@ CONFIG = Path.home() / ".config/pc-dashboard/atalhos.json"
 ALLOWED_HOSTS = {f"127.0.0.1:{PORT}", f"localhost:{PORT}"}
 NET_IFACE = "enp7s0"
 DISKS = [("/", "Sistema (NVMe)"), ("/mnt/SSD", "SSD")]
+AUDIO_RATE = 24000
+MPRIS = "org.mpris.MediaPlayer2"
 
 DEFAULT_SHORTCUTS = [
     {"id": "vol_down", "label": "Volume −", "icon": "🔉", "cmd": ["pactl", "set-sink-volume", "@DEFAULT_SINK@", "-5%"]},
@@ -103,6 +107,41 @@ class RaplReader:
         return de / 1e6 / dt if dt > 0 else None
 
 
+def _busctl(*args):
+    out = subprocess.run(["busctl", "--user", "-j", *args], capture_output=True, text=True, timeout=2)
+    return json.loads(out.stdout)["data"] if out.returncode == 0 and out.stdout else None
+
+
+def now_playing():
+    """Musica atual pelo MPRIS (Spotify, navegador, VLC...). Prefere quem esta tocando."""
+    names = _busctl("call", "org.freedesktop.DBus", "/org/freedesktop/DBus",
+                    "org.freedesktop.DBus", "ListNames") or [[]]
+    best = None
+    for name in (n for n in names[0] if n.startswith(MPRIS + ".")):
+        def prop(p):
+            return _busctl("get-property", name, "/org/mpris/MediaPlayer2", MPRIS + ".Player", p)
+        status = prop("PlaybackStatus")
+        if status not in ("Playing", "Paused"):
+            continue
+        meta = prop("Metadata") or {}
+        val = lambda k: (meta.get(k) or {}).get("data")
+        artist = val("xesam:artist")
+        info = {
+            "player": name[len(MPRIS) + 1:].split(".")[0],
+            "status": status,
+            "title": val("xesam:title") or "",
+            "artist": ", ".join(artist) if isinstance(artist, list) else (artist or ""),
+            "album": val("xesam:album") or "",
+            "art": val("mpris:artUrl") or "",
+            "length": (val("mpris:length") or 0) / 1e6,
+            "position": (prop("Position") or 0) / 1e6,
+        }
+        if status == "Playing":
+            return info
+        best = best or info
+    return best
+
+
 def _num(v):
     try:
         return float(v)
@@ -117,6 +156,7 @@ class Collector:
         self.stats = {}
         self.procs = []
         self.volume = None
+        self.media = None
         self._proc_cache = {}
         self._last_net = psutil.net_io_counters(pernic=True).get(NET_IFACE)
         self._last_disk = psutil.disk_io_counters()
@@ -132,6 +172,7 @@ class Collector:
             if tick % 2 == 0:
                 self._sample_procs()
                 self._sample_volume()
+                self._sample_media()
             try:
                 self.stats = self._sample()
             except Exception as exc:  # nunca derrubar a thread de coleta
@@ -191,6 +232,7 @@ class Collector:
             "net": {"iface": NET_IFACE, "rx": rx, "tx": tx},
             "procs": self.procs,
             "volume": self.volume,
+            "media": self.media,
         }
 
     def _sample_procs(self):
@@ -227,8 +269,19 @@ class Collector:
         except (OSError, subprocess.SubprocessError, ValueError):
             self.volume = None
 
+    def _sample_media(self):
+        try:
+            self.media = now_playing()
+        except (OSError, subprocess.SubprocessError, ValueError, KeyError, TypeError):
+            self.media = None
+
 
 COLLECTOR = Collector()
+
+
+def monitor_source():
+    sink = subprocess.run(["pactl", "get-default-sink"], capture_output=True, text=True, timeout=2).stdout.strip()
+    return sink + ".monitor" if sink else "@DEFAULT_MONITOR@"
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -257,7 +310,39 @@ class Handler(BaseHTTPRequestHandler):
         if self.path == "/api/shortcuts":
             items = [{k: s.get(k) for k in ("id", "label", "icon")} for s in load_shortcuts()]
             return self._send(200, json.dumps(items, ensure_ascii=False))
+        if self.path == "/api/audio":
+            return self._stream_audio()
         self._send(404, '{"error":"not found"}')
+
+    def _stream_audio(self):
+        # Um parec por cliente, vivo so enquanto o painel estiver lendo.
+        proc = subprocess.Popen(
+            ["parec", "-d", monitor_source(), "--format=s16le", f"--rate={AUDIO_RATE}", "--channels=1",
+             "--latency-msec=20", "--raw"],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", "application/octet-stream")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            fd = proc.stdout.fileno()
+            silence = bytes(AUDIO_RATE * 2 // 10)
+            while proc.poll() is None:
+                # Saida suspensa nao gera amostras: manda silencio pra perceber se o cliente saiu
+                if select.select([fd], [], [], 0.25)[0]:
+                    data = os.read(fd, 4096)
+                    if not data:
+                        break
+                else:
+                    data = silence
+                self.wfile.write(data)
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
+        finally:
+            proc.kill()
+            proc.wait()
 
     def do_POST(self):
         # Header customizado forca preflight CORS (que nunca aprovamos): outro site no
