@@ -699,6 +699,9 @@ function renderRedes() {
     if (r.id === "youtube" && has) {
       stats = stat("Views do canal", fmtN(d.views), deltaHtml(t.views)) + stat("Likes nos vídeos", fmtN(d.likes), deltaHtml(t.likes)) + stat("Vídeos", fmtN(d.posts));
       if (d.latest) extra = `Último vídeo: <b>${esc(d.latest.title)}</b> · ${fmtN(d.latest.views)} views · ${fmtN(d.latest.likes)} likes`;
+    } else if (r.id === "tiktok" && has) {
+      stats = stat("Views nos vídeos", fmtN(d.views), deltaHtml(t.views)) + stat("Likes do perfil", fmtN(d.likes), deltaHtml(t.likes)) + stat("Vídeos", fmtN(d.posts));
+      if (d.latest) extra = `Último vídeo: <b>${esc(d.latest.title || "sem título")}</b> · ${fmtN(d.latest.views)} views · ${fmtN(d.latest.likes)} likes`;
     } else if (r.id === "instagram" && has) {
       stats = stat("Likes nos posts", fmtN(d.likes), deltaHtml(t.likes)) + stat("Comentários", fmtN(d.comments)) + stat("Posts", fmtN(d.posts));
       if (d.latest) extra = `Último post: <b>${esc(d.latest.title || "sem legenda")}</b> · ${fmtN(d.latest.likes)} likes · ${fmtN(d.latest.comments)} comentários` +

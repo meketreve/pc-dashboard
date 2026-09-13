@@ -6,6 +6,7 @@ Historico diario em ~/.config/pc-dashboard/redes-historico.json (pra "+N hoje" e
 import datetime
 import hashlib
 import json
+import secrets
 import threading
 import time
 import urllib.error
@@ -222,18 +223,97 @@ class Instagram:
         }
 
 
-class NaoConfigurado:
-    """TikTok: ainda sem integracao."""
-    interval = 3600
+class TikTok:
+    """Login Kit Desktop + Display API. Autoriza uma vez em /tiktok/login; o servidor guarda e renova os tokens."""
+    interval = 900
+    API = "https://open.tiktokapis.com/v2/"
+    REDIRECT = "http://localhost:8787/tiktok/callback/"
+    SCOPES = "user.info.basic,user.info.stats,video.list"
+    _pending = {}  # state -> code_verifier (PKCE), sobrevive a recarga da config
 
     def __init__(self, cfg):
         self.cfg = cfg
 
     def configured(self):
-        return False
+        return bool(self.cfg.get("client_key") and self.cfg.get("client_secret"))
+
+    def login_url(self):
+        verifier = secrets.token_urlsafe(48)[:64]
+        state = secrets.token_urlsafe(16)
+        TikTok._pending = {state: verifier}
+        return "https://www.tiktok.com/v2/auth/authorize/?" + _q(
+            client_key=self.cfg["client_key"], response_type="code", scope=self.SCOPES,
+            redirect_uri=self.REDIRECT, state=state, code_challenge_method="S256",
+            code_challenge=hashlib.sha256(verifier.encode()).hexdigest())  # TikTok usa hex, nao base64url
+
+    def _token_call(self, **params):
+        r = _get(self.API + "oauth/token/", {"Content-Type": "application/x-www-form-urlencoded"},
+                 _q(client_key=self.cfg["client_key"], client_secret=self.cfg["client_secret"], **params).encode())
+        if "access_token" not in r:
+            raise ApiError(r.get("error_description") or r.get("error") or "TikTok recusou o token")
+        now = time.time()
+        store = _tokens()
+        store["tiktok"] = {"client_key": self.cfg["client_key"], "access_token": r["access_token"],
+                           "expires_at": now + r.get("expires_in", 86400),
+                           "refresh_token": r["refresh_token"], "refresh_expires_at": now + r.get("refresh_expires_in", 365 * 86400)}
+        _save_tokens(store)
+        return store["tiktok"]
+
+    def finish_login(self, code, state):
+        verifier = TikTok._pending.pop(state, None)
+        if not verifier:
+            raise ApiError("login expirado ou state inválido; abra /tiktok/login de novo")
+        self._token_call(code=code, grant_type="authorization_code", redirect_uri=self.REDIRECT, code_verifier=verifier)
+
+    def _access(self):
+        tok = _tokens().get("tiktok")
+        if not tok or tok.get("client_key") != self.cfg["client_key"]:
+            raise ApiError("falta autorizar: abra http://localhost:8787/tiktok/login no navegador do PC")
+        if time.time() > tok["refresh_expires_at"]:
+            raise ApiError("autorização venceu: abra http://localhost:8787/tiktok/login de novo")
+        if time.time() > tok["expires_at"] - 3600:
+            tok = self._token_call(grant_type="refresh_token", refresh_token=tok["refresh_token"])
+        return {"Authorization": "Bearer " + tok["access_token"]}
+
+    def _api(self, path, body=None):
+        h = self._access()
+        if body is not None:
+            h["Content-Type"] = "application/json"
+        r = _get(self.API + path, h, json.dumps(body).encode() if body is not None else None)
+        err = r.get("error") or {}
+        if err.get("code") not in (None, "ok"):
+            raise ApiError(err.get("message") or err["code"])
+        return r.get("data") or {}
+
+    def fetch(self):
+        u = self._api("user/info/?" + _q(fields="open_id,display_name,follower_count,likes_count,video_count")).get("user", {})
+        videos, cursor = [], None
+        while len(videos) < 500:
+            page = self._api("video/list/?" + _q(fields="id,title,view_count,like_count,comment_count,create_time"),
+                             {"max_count": 20, **({"cursor": cursor} if cursor else {})})
+            videos += page.get("videos", [])
+            if not page.get("has_more"):
+                break
+            cursor = page.get("cursor")
+        views = sum(v.get("view_count", 0) for v in videos)
+        latest = max(videos, key=lambda v: v.get("create_time", 0)) if videos else None
+        return {
+            "name": u.get("display_name"),
+            "handle": self.cfg.get("usuario"),
+            "followers": u.get("follower_count", 0),
+            "likes": u.get("likes_count", 0),
+            "views": views,
+            "posts": u.get("video_count", 0),
+            "latest": latest and {
+                "title": (latest.get("title") or "").split("\n")[0][:120],
+                "views": latest.get("view_count", 0),
+                "likes": latest.get("like_count", 0),
+                "comments": latest.get("comment_count", 0),
+            },
+        }
 
 
-PROVIDERS = {"youtube": Youtube, "twitch": Twitch, "instagram": Instagram, "tiktok": NaoConfigurado}
+PROVIDERS = {"youtube": Youtube, "twitch": Twitch, "instagram": Instagram, "tiktok": TikTok}
 
 
 class Redes:
@@ -285,6 +365,13 @@ class Redes:
                     self.data[name] = {**prev, "configured": True, "ok": False, "handle": handle, "error": str(exc)[:200]}
                     self._next[name] = now + min(prov.interval, 120)
             time.sleep(10)
+
+    def provider(self, name):
+        self._load_config()
+        return self._providers.get(name)
+
+    def refresh_now(self, name):
+        self._next[name] = 0
 
     def _record(self, name, vals):
         day = datetime.date.today().isoformat()

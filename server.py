@@ -13,6 +13,7 @@ import shutil
 import subprocess
 import threading
 import time
+import urllib.parse
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -318,9 +319,35 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, json.dumps({"index": (BASE / "index.html").stat().st_mtime}))
         if self.path == "/api/redes":
             return self._send(200, json.dumps(REDES.data, ensure_ascii=False))
+        if self.path == "/tiktok/login" or self.path.startswith("/tiktok/callback/"):
+            return self._tiktok_auth()
         if self.path == "/api/audio":
             return self._stream_audio()
         self._send(404, '{"error":"not found"}')
+
+    def _tiktok_auth(self):
+        """Autorizacao do TikTok (uma vez): /tiktok/login manda pro TikTok, que volta em /tiktok/callback/."""
+        prov = REDES.provider("tiktok")
+        page = lambda msg: self._send(200, f'<!doctype html><meta charset="utf-8"><title>TikTok</title>'
+                                           f'<body style="font:20px system-ui;background:#0d0d0d;color:#fff;padding:40px">{msg}',
+                                      "text/html; charset=utf-8")
+        if not prov or not prov.configured():
+            return page("Falta preencher <b>tiktok.client_key</b> e <b>tiktok.client_secret</b> no redes.json.")
+        if self.path == "/tiktok/login":
+            self.send_response(302)
+            self.send_header("Location", prov.login_url())
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            return
+        q = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+        if "error" in q:
+            return page(f"O TikTok recusou: {q['error'][0]} {q.get('error_description', [''])[0]}".replace("<", ""))
+        try:
+            prov.finish_login(q.get("code", [""])[0], q.get("state", [""])[0])
+        except Exception as exc:
+            return page(f"Deu erro ao trocar o código: {str(exc)[:200]}".replace("<", ""))
+        REDES.refresh_now("tiktok")
+        page("✅ TikTok conectado! Pode fechar esta aba; os números aparecem no painel em alguns segundos.")
 
     def _stream_audio(self):
         # Um parec por cliente, vivo so enquanto o painel estiver lendo.
