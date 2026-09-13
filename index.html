@@ -168,13 +168,17 @@
   .rede-foot { font-size: 15px; color: var(--muted); }
   .procs-card { overflow: hidden; }
   .redes-mini { cursor: pointer; }
-  .redes-mini .rows { gap: 8px; }
-  .rm { display: grid; grid-template-columns: 22px auto minmax(0, 1fr) auto; align-items: center; gap: 10px; }
-  .rm svg { width: 20px; height: 20px; color: var(--text-2); }
-  .rm .n { color: var(--text-2); }
-  .rm .d { justify-self: end; font-size: 16px; color: var(--text-2); white-space: nowrap; }
-  .rm .v { font-weight: 600; font-size: 22px; font-variant-numeric: tabular-nums; min-width: 3ch; text-align: right; }
-  .rm.off .v { font-size: 16px; font-weight: 400; color: var(--muted); }
+  /* Tabelinha: colunas alinhadas entre as linhas (cada .rm e display: contents) */
+  .redes-mini .rows { display: grid; grid-template-columns: 22px minmax(0, 1fr) repeat(4, auto); column-gap: 16px; row-gap: 8px; align-items: baseline; }
+  .rm { display: contents; }
+  .rm svg { width: 20px; height: 20px; color: var(--text-2); align-self: center; }
+  .rm .n { color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rm .c { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; color: var(--text); font-size: 18px; }
+  .rm .v { font-weight: 600; font-size: 22px; }
+  .rm .h { font-size: 16px; color: var(--text-2); }
+  .rm .s { font-size: 16px; color: var(--muted); }
+  .rm .span4 { grid-column: span 4; }
+  .rm.head .c { font-size: 14px; color: var(--muted); }
   .rm .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--critical); margin-right: 6px; vertical-align: 1px; }
   .rede.off .hero-v { color: var(--muted); font-size: 40px; font-weight: 500; }
   .live { display: inline-flex; align-items: center; }
@@ -739,12 +743,18 @@ async function loadRedes() {
 }
 
 /* Resumo compacto no painel principal, abaixo dos processos */
+const fmtK = v => v == null ? "—" : new Intl.NumberFormat("pt-BR", { notation: "compact", maximumFractionDigits: 1 }).format(v);
 function renderRedesMini() {
-  document.getElementById("redes-mini-rows").innerHTML = REDES.map(r => {
-    const d = redesData[r.id] || {}, has = d.followers != null, t = d.today || {};
-    const extra = r.id === "twitch" && d.live ? `<i class="dot"></i>ao vivo · ${fmtN(d.live.viewers)}` : deltaHtml(t.followers);
-    return `<div class="rm${has ? "" : " off"}"><svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round">${r.icon}</svg>` +
-      `<span class="n">${r.nome}</span><span class="d">${has ? extra : ""}</span><span class="v">${has ? fmtN(d.followers) : "em breve"}</span></div>`;
+  const icon = r => `<svg viewBox="0 0 22 22" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round" stroke-linecap="round">${r.icon}</svg>`;
+  const head = '<div class="rm head"><span></span><span></span><span class="c">Seguidores</span><span class="c">Hoje</span><span class="c">Views</span><span class="c">Likes</span></div>';
+  document.getElementById("redes-mini-rows").innerHTML = head + REDES.map(r => {
+    const d = redesData[r.id] || {}, t = d.today || {};
+    if (d.followers == null) return `<div class="rm">${icon(r)}<span class="n">${r.nome}</span><span class="c s span4">em breve</span></div>`;
+    const hoje = t.followers ? `<span class="c h">${deltaHtml(t.followers, "")}</span>` : '<span class="c s">—</span>';
+    const rest = r.id === "twitch" && d.live
+      ? `<span class="c h" style="grid-column: span 2"><i class="dot"></i>ao vivo · ${fmtN(d.live.viewers)} assistindo</span>`
+      : `<span class="c">${fmtK(d.views)}</span><span class="c">${fmtK(d.likes)}</span>`;
+    return `<div class="rm">${icon(r)}<span class="n">${r.nome}</span><span class="c v">${fmtN(d.followers)}</span>${hoje}${rest}</div>`;
   }).join("");
 }
 document.getElementById("redes-mini").addEventListener("click", () => showPage(PAGES.indexOf("page-redes")));
